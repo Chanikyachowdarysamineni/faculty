@@ -225,10 +225,16 @@ router.get('/export', requireAuth, requireAdmin, async (req, res, next) => {
       return sendError(res, 'Invalid format. Supported: csv, excel', 400);
     }
 
-    const docs = await Submission.find({})
-      .select('empId empName designation mobile prefs createdAt updatedAt')
-      .sort({ createdAt: -1 })
-      .lean();
+    // Fetch submissions and courses in parallel
+    const [docs, courseList] = await Promise.all([
+      Submission.find({})
+        .select('empId empName designation mobile prefs createdAt updatedAt')
+        .sort({ createdAt: -1 })
+        .lean(),
+      Course.find({})
+        .select('courseId shortName')
+        .lean(),
+    ]);
 
     if (!docs.length) {
       logger.warn('No submissions found for export', { userId: req.user.id });
@@ -246,7 +252,13 @@ router.get('/export', requireAuth, requireAdmin, async (req, res, next) => {
       updatedAt: doc.updatedAt?.toISOString() || null,
     }));
 
-    const exportResult = await exportSubmissions(submissions, format);
+    // Transform courses to courseId map
+    const courses = (courseList || []).map(doc => ({
+      courseId: Number(doc.courseId || 0),
+      shortName: String(doc.shortName || '').trim(),
+    }));
+
+    const exportResult = await exportSubmissions(submissions, courses, format);
 
     await logAuditEvent({ 
       req, 

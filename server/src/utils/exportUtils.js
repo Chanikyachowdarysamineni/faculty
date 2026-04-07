@@ -85,16 +85,27 @@ const generateExcel = async (data = [], columns = [], sheetName = 'Data') => {
 /**
  * Export submissions data
  * @param {Array} submissions - Array of submission objects
+ * @param {Array} courses - Array of course objects for lookup
  * @param {String} format - 'csv' or 'excel'
  * @returns {Object} {filename, content, contentType}
  */
-const exportSubmissions = async (submissions = [], format = 'csv') => {
+const exportSubmissions = async (submissions = [], courses = [], format = 'csv') => {
+  // Create courseId -> shortName map
+  const courseMap = {};
+  (courses || []).forEach(course => {
+    courseMap[course.courseId] = course.shortName || `Course ${course.courseId}`;
+  });
+
   const columns = [
     { key: 'empId', header: 'Employee ID', width: 12 },
     { key: 'empName', header: 'Faculty Name', width: 25 },
     { key: 'designation', header: 'Designation', width: 20 },
     { key: 'mobile', header: 'Mobile', width: 15 },
-    { key: 'preferences', header: 'Course Preferences', width: 40 },
+    { key: 'pref1', header: 'Preference 1', width: 20 },
+    { key: 'pref2', header: 'Preference 2', width: 20 },
+    { key: 'pref3', header: 'Preference 3', width: 20 },
+    { key: 'pref4', header: 'Preference 4', width: 20 },
+    { key: 'pref5', header: 'Preference 5', width: 20 },
     { key: 'submittedAt', header: 'Submitted At', width: 20 },
     { key: 'updatedAt', header: 'Last Updated', width: 20 },
   ];
@@ -105,7 +116,11 @@ const exportSubmissions = async (submissions = [], format = 'csv') => {
     empName: sub.empName || '',
     designation: sub.designation || 'N/A',
     mobile: sub.mobile || 'N/A',
-    preferences: Array.isArray(sub.prefs) ? sub.prefs.join(', ') : '',
+    pref1: courseMap[sub.prefs?.[0]] || '—',
+    pref2: courseMap[sub.prefs?.[1]] || '—',
+    pref3: courseMap[sub.prefs?.[2]] || '—',
+    pref4: courseMap[sub.prefs?.[3]] || '—',
+    pref5: courseMap[sub.prefs?.[4]] || '—',
     submittedAt: sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : '',
     updatedAt: sub.updatedAt ? new Date(sub.updatedAt).toLocaleString() : '',
   }));
