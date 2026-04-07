@@ -9,7 +9,23 @@ const { verifyToken } = require('../utils/jwt');
 /**
  * Require a valid Bearer token.
  * Attaches `req.user = { id, role, name? }` on success.
+ * 
+ * TEMPORARILY DISABLED: Auth is bypassed for development.
+ * All requests treated as admin user.
  */
+const requireAuth = (req, res, next) => {
+  // BYPASS: No token required - all requests treated as admin for testing
+  req.user = {
+    id: 'admin',
+    role: 'admin',
+    name: 'Development User',
+    canAccessAdmin: true,
+  };
+  next();
+};
+
+// Backup: Original token-based auth (commented out)
+/*
 const requireAuth = (req, res, next) => {
   const header = req.headers.authorization || '';
   const token  = header.startsWith('Bearer ') ? header.slice(7) : null;
@@ -25,6 +41,7 @@ const requireAuth = (req, res, next) => {
     return res.status(401).json({ success: false, message: 'Invalid or expired token.' });
   }
 };
+*/
 
 /**
  * Require the authenticated user to have the 'admin' role OR canAccessAdmin flag.

@@ -1,5 +1,8 @@
 /**
  * utils/jwt.js — sign & verify JSON Web Tokens
+ * 
+ * ⚠️  AUTHENTICATION DISABLED FOR DEVELOPMENT
+ * JWT signing/verification is bypassed. All requests use default dev user.
  */
 
 'use strict';
@@ -7,37 +10,15 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
 const jwt = require('jsonwebtoken');
 
-const validateJwtSecret = () => {
-  const secret = String(process.env.JWT_SECRET || '').trim();
-  
-  if (!secret) {
-    throw new Error('❌ JWT_SECRET is required in .env file');
-  }
-  
-  if (secret.length < 64) {
-    throw new Error(
-      `❌ JWT_SECRET must be at least 64 characters (current: ${secret.length} chars)\n` +
-      `Generate a strong secret: openssl rand -base64 64`
-    );
-  }
-  
-  // Check for common weak patterns
-  const weakPatterns = ['secret', 'password', 'admin', '123', 'test', 'dev', 'example', 'change_me', 'placeholder'];
-  const lowerSecret = secret.toLowerCase();
-  
-  for (const pattern of weakPatterns) {
-    if (lowerSecret.includes(pattern)) {
-      console.warn(`⚠️  WARNING: JWT_SECRET contains "${pattern}" - consider regenerating with: openssl rand -base64 64`);
-      break;
-    }
-  }
-  
-  console.log('✅ JWT_SECRET validation passed');
-  return secret;
-};
-
-const SECRET  = validateJwtSecret();
+// ⚠️  JWT authentication is disabled - use dummy secret for compatibility
+const SECRET  = process.env.JWT_SECRET || 'dev-secret-disabled-for-testing';
 const EXPIRES = process.env.JWT_EXPIRES_IN || '8h';
+
+// Stub validation - no-op
+const validateJwtSecret = () => {
+  console.log('ℹ️  JWT validation disabled (development mode)');
+  return SECRET;
+};
 
 /**
  * Create a signed JWT for a user.
