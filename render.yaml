@@ -14,7 +14,7 @@ services:
       - key: CLIENT_ORIGIN
         value: https://wlm-client.onrender.com,https://faculty-workload-management.onrender.com,https://faculty-workload-management-cse-client.onrender.com,https://faculty-workload-management-1.onrender.com
       - key: MONGO_URI
-        sync: false
+        value: mongodb+srv://raavanaasura87_db_user:Chani8877@chani.irvyksk.mongodb.net/wlm?retryWrites=true&w=majority
       - key: JWT_SECRET
         value: eYkL9pQ2mR5nW8xC3vB6hJ0fG4sT1aU9eD3zY6jQ2wL5rK8oP1mN4xV7cB0fH3gJ6lM9kP2qR5sT8uV1wX4yZ7aB0cD3eF6gH9jK2mL5nO8pQ1rS4tU7vW0xY3zB6cD9
       - key: JWT_EXPIRES_IN
@@ -38,18 +38,6 @@ services:
       - key: SMTP_PORT
         value: "587"
       - key: SMTP_SECURE
-        value: "false"
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASS
-        sync: false
-      - key: SMTP_FROM
-        sync: false
-      - key: LOG_LEVEL
-        value: info
-      - key: ADMIN_ID
-        value: admin
-      - key: ADMIN_PASSWORDRE
         value: "false"
       - key: SMTP_USER
         sync: false
