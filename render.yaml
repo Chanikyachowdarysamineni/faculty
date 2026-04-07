@@ -16,9 +16,15 @@ services:
       - key: MONGO_URI
         sync: false
       - key: JWT_SECRET
-        sync: false
+        value: eYkL9pQ2mR5nW8xC3vB6hJ0fG4sT1aU9eD3zY6jQ2wL5rK8oP1mN4xV7cB0fH3gJ6lM9kP2qR5sT8uV1wX4yZ7aB0cD3eF6gH9jK2mL5nO8pQ1rS4tU7vW0xY3zB6cD9
       - key: JWT_EXPIRES_IN
         value: 8h
+      - key: BCRYPT_ROUNDS
+        value: "10"
+      - key: DB_MAX_POOL
+        value: "20"
+      - key: DB_MIN_POOL
+        value: "5"
       - key: AUTH_LOGIN_RATE_LIMIT
         value: "10"
       - key: MAX_FAILED_LOGIN_ATTEMPTS
@@ -28,7 +34,7 @@ services:
       - key: RESET_TOKEN_TTL_MINUTES
         value: "30"
       - key: SMTP_HOST
-        sync: false
+        value: smtp.gmail.com
       - key: SMTP_PORT
         value: "587"
       - key: SMTP_SECURE
@@ -38,6 +44,24 @@ services:
       - key: SMTP_PASS
         sync: false
       - key: SMTP_FROM
+        sync: false
+      - key: LOG_LEVEL
+        value: info
+      - key: ADMIN_ID
+        value: admin
+      - key: ADMIN_PASSWORDRE
+        value: "false"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: LOG_LEVEL
+        value: info
+      - key: ADMIN_ID
+        value: admin
+      - key: ADMIN_PASSWORD
         sync: false
 
   # ── Frontend React App ───────────────────────────
