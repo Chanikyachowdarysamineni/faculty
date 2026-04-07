@@ -3,11 +3,17 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
+    "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-router-dom": "^7.13.1",
     "react-scripts": "5.0.1",
+    "recharts": "^3.8.0",
     "xlsx": "^0.18.5"
   },
   "scripts": {
@@ -27,6 +33,7 @@
     ]
   },
   "devDependencies": {
+    "http-proxy-middleware": "^2.0.6",
     "jimp": "^1.6.0",
     "sharp": "^0.34.5"
   }
