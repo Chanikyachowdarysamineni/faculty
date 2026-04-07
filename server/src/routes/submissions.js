@@ -2,6 +2,7 @@
  * routes/submissions.js
  *
  * GET    /api/submissions              — list all (admin)
+ * GET    /api/submissions/export       — export all (admin) ?format=csv|excel
  * GET    /api/submissions/by-faculty/:empId — get one (self or admin)
  * POST   /api/submissions              — submit preferences (auth)
  * PUT    /api/submissions/by-faculty/:empId — update preferences (self or admin, form/edit must be open)
@@ -22,6 +23,7 @@ const { requireAuth, requireAdmin, requireSelfOrAdmin } = require('../middleware
 const { sendSuccess, sendError, sendValidationError, sendPaginated, sendCreated, sendConflict, sendNotFound, sendForbidden } = require('../utils/response');
 const logger = require('../utils/logger');
 const { validateSubmissionCreate, validatePagination } = require('../middleware/validators');
+const { exportSubmissions } = require('../utils/exportUtils');
 
 const router = express.Router();
 
@@ -213,6 +215,60 @@ router.post(
     }
   }
 );
+
+// GET /api/submissions/export  (admin) — export all submissions as CSV or Excel
+router.get('/export', requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const format = String(req.query.format || 'csv').toLowerCase();
+    if (!['csv', 'excel'].includes(format)) {
+      logger.warn('Invalid export format requested', { format, userId: req.user.id });
+      return sendError(res, 'Invalid format. Supported: csv, excel', 400);
+    }
+
+    const docs = await Submission.find({})
+      .select('empId empName designation mobile prefs createdAt updatedAt')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (!docs.length) {
+      logger.warn('No submissions found for export', { userId: req.user.id });
+      return sendError(res, 'No submissions found to export.', 404);
+    }
+
+    // Transform to client format
+    const submissions = docs.map(doc => ({
+      empId: String(doc.empId || '').trim(),
+      empName: String(doc.empName || '').trim(),
+      designation: String(doc.designation || '').trim() || 'N/A',
+      mobile: String(doc.mobile || '').trim() || 'N/A',
+      prefs: Array.isArray(doc.prefs) ? doc.prefs : [],
+      submittedAt: doc.createdAt?.toISOString() || null,
+      updatedAt: doc.updatedAt?.toISOString() || null,
+    }));
+
+    const exportResult = await exportSubmissions(submissions, format);
+
+    await logAuditEvent({ 
+      req, 
+      action: 'submission.export', 
+      entity: 'submission', 
+      metadata: { format, totalRecords: submissions.length } 
+    });
+    logger.info('Submissions exported', { format, total: submissions.length, userId: req.user.id });
+
+    res.setHeader('Content-Type', exportResult.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${exportResult.filename}"`);
+    
+    if (format === 'excel') {
+      res.send(exportResult.content);
+    } else {
+      res.send(exportResult.content);
+    }
+  } catch (err) { 
+    logger.error('Error exporting submissions', { error: err.message, userId: req.user.id });
+    next(err); 
+  }
+});
 
 // DELETE /api/submissions/:id  (admin)
 router.delete('/:id', requireAuth, requireAdmin, async (req, res, next) => {

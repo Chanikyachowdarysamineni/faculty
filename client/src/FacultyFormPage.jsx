@@ -30,6 +30,8 @@ const FacultyFormPage = ({
   const [prefsOther, setPrefsOther]   = useState(['', '', '', '', '']);
   const [facultyList, setFacultyList] = useState([]);
   const [courseList, setCourseList] = useState([]);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportError, setExportError] = useState('');
 
 
   const authHeaders = () => ({
@@ -190,7 +192,7 @@ const FacultyFormPage = ({
   };
 
   // ── Helpers ─────────────────────────────────────
-  const getCourse   = cid => courseList.find(c => c.id === cid);
+  const getCourse   = cid => courseList.find(c => String(c.id) === String(cid));
   const ltpcLabel   = cid => {
     const c = getCourse(cid);
     return c ? `L:${c.L} T:${c.T} P:${c.P} C:${c.C}` : '';
@@ -202,6 +204,49 @@ const FacultyFormPage = ({
       !q || s.empId.includes(q) || s.empName.toLowerCase().includes(q)
     );
   }, [submissions, search]);
+
+  // ── Export handlers ─────────────────────────────
+  const handleExport = async (format) => {
+    if (submissions.length === 0) {
+      alert('No submissions to export.');
+      return;
+    }
+    setExportLoading(true);
+    setExportError('');
+    try {
+      const res = await fetch(`${API}/api/submissions/export?format=${format}`, {
+        method: 'GET',
+        headers: authHeaders(),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || `Export failed with status ${res.status}`);
+      }
+
+      // Get filename from header if available
+      const contentDisposition = res.headers.get('content-disposition');
+      let filename = `submissions_${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'csv'}`;
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) filename = match[1];
+      }
+
+      // Download file
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setExportError(err.message || 'Export failed. Please try again.');
+    } finally {
+      setExportLoading(false);
+    }
+  };
 
   // ═══════════════════════════════════════════════
   return (
@@ -572,6 +617,25 @@ const FacultyFormPage = ({
                 onChange={e => setSearch(e.target.value)}
               />
               {search && <button className="ff-search-clear" onClick={() => setSearch('')}>✕</button>}
+            </div>
+            <div className="ff-export-actions">
+              {exportError && <span className="ff-export-error">⚠️ {exportError}</span>}
+              <button
+                className="ff-export-btn ff-export-csv"
+                onClick={() => handleExport('csv')}
+                disabled={exportLoading || submissions.length === 0}
+                title="Export submissions as CSV"
+              >
+                {exportLoading ? '⏳' : '📊'} CSV
+              </button>
+              <button
+                className="ff-export-btn ff-export-excel"
+                onClick={() => handleExport('excel')}
+                disabled={exportLoading || submissions.length === 0}
+                title="Export submissions as Excel"
+              >
+                {exportLoading ? '⏳' : '📈'} Excel
+              </button>
             </div>
           </div>
 

@@ -84,7 +84,7 @@ const MySubmissionsPage = ({
     };
   }, [loadMasterData]);
 
-  const getCourse = cid => courseList.find(c => c.id === cid);
+  const getCourse = cid => courseList.find(c => String(c.id) === String(cid));
 
   const startEdit = () => {
     const filled = [...(mySubmission.prefs.map(String))];
