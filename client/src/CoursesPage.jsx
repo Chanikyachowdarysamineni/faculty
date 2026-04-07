@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import API from './config';
 import { fetchAllPages, authJsonHeaders } from './utils/apiFetchAll';
+import { exportCoursesList, exportCoursesListExcel } from './utils/frontendExportUtils';
+import { useToast } from './Toast';
 import './CoursesPage.css';
 
 const PROGRAMS     = ['B.Tech', 'M.Tech'];
@@ -41,8 +43,7 @@ const CoursesPage = ({ isAdmin = true }) => {
   const [deleteCourse,    setDeleteCourse]    = useState(null);
 
   // ── Toast ──
-  const [toast, setToast] = useState('');
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
+  const { showToast } = useToast();
 
   const authHeaders = () => ({
     ...authJsonHeaders(),
@@ -195,6 +196,36 @@ const CoursesPage = ({ isAdmin = true }) => {
               onChange={e => setSearch(e.target.value)}
             />
             {search && <button className="cp-search-clear" onClick={() => setSearch('')}>✕</button>}
+          </div>
+          <div className="cp-export-buttons">
+            <button 
+              className="cp-btn cp-export-csv"
+              onClick={() => {
+                try {
+                  exportCoursesList(courseList);
+                  showToast('Courses exported as CSV');
+                } catch (err) {
+                  showToast('Failed to export CSV');
+                }
+              }}
+              title="Export as CSV"
+            >
+              📥 CSV
+            </button>
+            <button 
+              className="cp-btn cp-export-excel"
+              onClick={() => {
+                try {
+                  exportCoursesListExcel(courseList);
+                  showToast('Courses exported as Excel');
+                } catch (err) {
+                  showToast('Failed to export Excel');
+                }
+              }}
+              title="Export as Excel"
+            >
+              📊 Excel
+            </button>
           </div>
         </div>
       </div>

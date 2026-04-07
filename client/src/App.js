@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import ErrorBoundary from './ErrorBoundary';
+import ToastProvider from './Toast';
+import LoadingProvider from './LoadingIndicator';
 import LoginPage from './LoginPage';
 import Dashboard from './Dashboard';
 
@@ -21,7 +24,7 @@ function loadSavedUser() {
   }
 }
 
-function App() {
+function AppContent() {
   const [currentUser, setCurrentUser] = useState(loadSavedUser);
 
   const handleLogin = useCallback((user) => {
@@ -46,6 +49,18 @@ function App() {
   }
 
   return <LoginPage onLogin={handleLogin} />;
+}
+
+function App() {
+  return (
+    <ErrorBoundary>
+      <ToastProvider>
+        <LoadingProvider>
+          <AppContent />
+        </LoadingProvider>
+      </ToastProvider>
+    </ErrorBoundary>
+  );
 }
 
 export default App;

@@ -41,7 +41,7 @@
 }
 
 /* ── Search ── */
-.cp-topbar-right { display: flex; align-items: center; gap: 10px; }
+.cp-topbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 .cp-search-wrap { position: relative; display: flex; align-items: center; }
 
@@ -337,6 +337,39 @@
   box-shadow: 0 3px 10px rgba(239,68,68,.3);
 }
 .cp-btn-danger:hover { background: #dc2626; }
+
+/* ── Export Buttons ── */
+.cp-export-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cp-export-csv {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 12px;
+}
+
+.cp-export-csv:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 4px 12px rgba(16,185,129,.3);
+}
+
+.cp-export-excel {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 12px;
+}
+
+.cp-export-excel:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 4px 12px rgba(59,130,246,.3);
+}
 
 /* ── Table ── */
 .cp-table-wrap {
