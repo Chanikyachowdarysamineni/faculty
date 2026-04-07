@@ -1,7 +1,0 @@
-{
-  "name": "Faculty Workload Management System",
-  "description": "A comprehensive system for managing faculty workloads, course assignments, and L-T-P hour tracking for university departments.",
-  "requestFramePermissions": [
-    "geolocation"
-  ]
-}
