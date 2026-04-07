@@ -473,8 +473,6 @@ const CoursesPage = ({ isAdmin = true }) => {
           </div>
         </div>
       )}
-
-      {toast && <div className="cp-toast">{toast}</div>}
     </div>
   );
 };
