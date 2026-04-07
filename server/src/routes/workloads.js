@@ -3,8 +3,10 @@
  *
  * GET    /api/workloads              — list (admin sees all; faculty sees own)
  * GET    /api/workloads/export/csv   — CSV download (admin)
+ * GET    /api/workloads/faculty-hours/:empId — get faculty workload summary (admin/faculty)
+ * GET    /api/workloads/workload-report — get all faculty workload report (admin)
  * GET    /api/workloads/:id          — get one
- * POST   /api/workloads              — assign (admin)
+ * POST   /api/workloads              — assign (admin). NOW WITH HOUR VALIDATION
  * PUT    /api/workloads/:id          — update (admin)
  * DELETE /api/workloads/:id          — delete (admin)
  */
@@ -24,6 +26,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { sendSuccess, sendError, sendValidationError, sendPaginated, sendCreated, sendConflict, sendNotFound } = require('../utils/response');
 const logger = require('../utils/logger');
 const { validateWorkloadCreate, validateWorkloadUpdate, validateWorkloadDelete, validatePagination } = require('../middleware/validators');
+const { calculateFacultyWorkload, getFacultyWorkloadSummary, canAssignWorkload, getFacultyWorkloadReport } = require('../utils/workloadHours');
 
 const router = express.Router();
 
@@ -33,6 +36,18 @@ const ROLE_DUPLICATE_MSG = 'This faculty is already assigned with the same role 
 const DE_SECTION_DUPLICATE_MSG = 'Only one Department Elective can be assigned to the same section for I/II/III years.';
 const TA_SECTION_DUPLICATE_MSG = 'TA is already assigned for this subject and section. Only one TA is allowed per section.';
 const DE_COURSE_TYPE_REGEX = /^\s*(de|department\s+elective)\s*$/i;
+
+// CRITICAL: Normalize year format (numeric or Roman numeral) to canonical form
+// Maps: '1' -> 'I', '2' -> 'II', '3' -> 'III', '4' -> 'IV', 'M.Tech' -> 'M.Tech'
+const normalizeYear = (year) => {
+  const trimmed = String(year || '').trim().toUpperCase();
+  if (trimmed === 'I' || trimmed === '1') return 'I';
+  if (trimmed === 'II' || trimmed === '2') return 'II';
+  if (trimmed === 'III' || trimmed === '3') return 'III';
+  if (trimmed === 'IV' || trimmed === '4') return 'IV';
+  if (trimmed === 'M.TECH') return 'M.Tech';
+  return trimmed; // Return as-is if not recognized
+};
 
 const isDuplicateKeyError = (err) =>
   !!err && (err.code === 11000 || err.code === 11001);
@@ -301,16 +316,23 @@ const clearTAFromAllocation = async ({ courseId, year, section, allocationRow })
 };
 
 // GET /api/workloads
+// List workloads with filtering. Properly returns ALL records matching the filter (uses find(), NOT findOne())
 router.get('/', requireAuth, validatePagination, async (req, res, next) => {
   try {
+    // Disable caching to prevent 304 Not Modified responses
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
     const { page, limit, skip } = parsePagination(req.query);
     const filter = {};
     const isDualAccessAdmin = req.user?.canAccessAdmin === true;
     const isFacultyOnly = req.user.role === 'faculty' && !isDualAccessAdmin;
     const effectiveEmp = isFacultyOnly ? req.user.id : req.query.empId;
     if (effectiveEmp) filter.empId = effectiveEmp;
-    if (req.query.year) filter.year = String(req.query.year);
-    if (req.query.section) filter.section = String(req.query.section);
+    // CRITICAL: Normalize year to canonical format (I/II/III/IV or M.Tech) for filtering
+    if (req.query.year) filter.year = normalizeYear(req.query.year);
+    if (req.query.section) filter.section = String(req.query.section).trim();
     if (req.query.courseId) filter.courseId = Number(req.query.courseId);
     if (req.query.search) {
       const q = String(req.query.search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -321,16 +343,27 @@ router.get('/', requireAuth, validatePagination, async (req, res, next) => {
         { subjectName: { $regex: q, $options: 'i' } },
       ];
     }
+    
+    // CRITICAL: Always use find() to get ALL matching records, never findOne()
+    // This ensures multiple faculty workloads in the same section are returned
     const [total, docs] = await Promise.all([
       Workload.countDocuments(filter),
       Workload.find(filter)
         .select('empId empName facultyRole designation mobile department courseId courseType subjectCode subjectName shortName program year section fixedL fixedT fixedP C manualL manualT manualP allocationRow createdAt')
-        .sort({ createdAt: -1 })
+        .sort({ year: 1, section: 1, subjectCode: 1, createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
     ]);
-    logger.info('Workloads listed', { userId: req.user.id, filter, total, page, limit });
+    
+    logger.info('Workloads listed', { 
+      userId: req.user.id, 
+      filter: JSON.stringify(filter), 
+      total, 
+      page, 
+      limit, 
+      returnedDocs: docs.length 
+    });
     sendPaginated(res, docs.map(toClient), { total, page, limit }, 200);
   } catch (err) { 
     logger.error('Error listing workloads', { error: err.message, userId: req.user.id });
@@ -363,16 +396,55 @@ router.get('/export/csv', requireAuth, requireAdmin, async (req, res, next) => {
   }
 });
 
+// GET /api/workloads/section-workloads?year=X&section=Y
+// Fetch all workloads for a specific section
+router.get('/section-workloads', requireAuth, async (req, res, next) => {
+  try {
+    // Disable caching to prevent 304 Not Modified responses
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
+    // CRITICAL: Normalize year to canonical format (I/II/III/IV or M.Tech) for consistent filtering
+    const year = normalizeYear(req.query.year);
+    const section = String(req.query.section || '').trim();
+
+    if (!year || !section) {
+      logger.warn('Missing year or section in section-workloads query', { userId: req.user.id, year, section });
+      return sendError(res, 'Both year and section are required.', 400);
+    }
+
+    const filter = { year, section };
+    const docs = await Workload.find(filter)
+      .select('empId empName facultyRole designation mobile department courseId courseType subjectCode subjectName shortName program year section fixedL fixedT fixedP C manualL manualT manualP allocationRow createdAt')
+      .sort({ facultyRole: 1, subjectCode: 1, createdAt: -1 })
+      .lean();
+
+    logger.info('Section workloads retrieved', { userId: req.user.id, year, section, total: docs.length });
+    sendSuccess(res, docs.map(toClient), 200);
+  } catch (err) { 
+    logger.error('Error retrieving section workloads', { error: err.message, userId: req.user.id });
+    next(err); 
+  }
+});
+
 // GET /api/workloads/main-faculty?year=III
 // Returns mapping: { '<courseId>__<section>': { empId, empName, designation, ... } }
 router.get('/main-faculty', requireAuth, async (req, res, next) => {
   try {
+    // Disable caching to prevent 304 Not Modified responses
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
     const year = req.query.year;
     if (!year) {
       logger.warn('Missing year in main-faculty query', { userId: req.user.id });
       return sendError(res, 'Year is required.', 400);
     }
-    const docs = await Workload.find({ year, facultyRole: 'Main Faculty' }).lean();
+    // CRITICAL: Normalize year to canonical format (I/II/III/IV or M.Tech) for consistent filtering
+    const normalizedYear = normalizeYear(year);
+    const docs = await Workload.find({ year: normalizedYear, facultyRole: 'Main Faculty' }).lean();
     // Map: courseId__section => faculty details (first found for each combo)
     const map = {};
     for (const w of docs) {
@@ -388,7 +460,7 @@ router.get('/main-faculty', requireAuth, async (req, res, next) => {
         };
       }
     }
-    logger.info('Main faculty mapping retrieved', { userId: req.user.id, year, total: Object.keys(map).length });
+    logger.info('Main faculty mapping retrieved', { userId: req.user.id, year: normalizedYear, total: Object.keys(map).length });
     sendSuccess(res, map, 200);
   } catch (err) { 
     logger.error('Error retrieving main-faculty mapping', { error: err.message, userId: req.user.id });
@@ -437,7 +509,8 @@ router.post(
             ? String(facultyRole).trim()
             : 'Main Faculty';
 
-          const normalizedYear = String(year || '').trim();
+          // CRITICAL: Normalize year to canonical format (I/II/III/IV or M.Tech)
+          const normalizedYear = normalizeYear(year);
           const normalizedSection = String(section || '').trim();
 
 
@@ -526,6 +599,36 @@ router.post(
           logger.warn('Invalid allocation row for TA', { allocationRow, userId: req.user.id });
           return sendError(res, 'TA allocationRow must be 1, 2, or 3 (R2, R3, R4).', 400);
         }
+      }
+
+      // CRITICAL: Validate workload hours capacity
+      const lectureHours = manualL ?? effectiveCourse.L;
+      const tutorialHours = manualT ?? effectiveCourse.T;
+      const practicalHours = manualP ?? effectiveCourse.P;
+      const hoursToAssign = lectureHours + tutorialHours + practicalHours;
+
+      try {
+        const workloadCheck = await canAssignWorkload(effectiveMember.empId, lectureHours, tutorialHours, practicalHours);
+        if (!workloadCheck.canAssign) {
+          logger.warn('Faculty workload capacity exceeded', { 
+            empId: effectiveMember.empId, 
+            empName: effectiveMember.name,
+            hoursToAssign,
+            reason: workloadCheck.reason,
+            userId: req.user.id 
+          });
+          return sendError(res, `Workload assignment failed: ${workloadCheck.reason}`, 400);
+        }
+        logger.info('Faculty workload capacity verified', {
+          empId: effectiveMember.empId,
+          empName: effectiveMember.name,
+          hoursToAssign,
+          summary: workloadCheck.summary,
+          userId: req.user.id
+        });
+      } catch (hourErr) {
+        logger.error('Error validating workload hours', { empId: effectiveMember.empId, error: hourErr.message, userId: req.user.id });
+        return sendError(res, 'Error validating faculty capacity. Please contact support.', 500);
       }
 
       const duplicateRole = await Workload.findOne({
@@ -916,6 +1019,64 @@ router.delete('/:id', requireAuth, requireAdmin, validateWorkloadDelete, async (
   } catch (err) { 
     logger.error('Error deleting workload', { error: err.message, id: req.params.id, userId: req.user.id });
     next(err); 
+  }
+});
+
+// GET /api/workloads/faculty-hours/:empId (admin/faculty)
+// Get faculty workload summary with remaining hours capacity
+router.get('/faculty-hours/:empId', requireAuth, async (req, res, next) => {
+  try {
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+
+    const { empId } = req.params;
+    const isDualAccessAdmin = req.user?.canAccessAdmin === true;
+    const isFacultyOnly = req.user.role === 'faculty' && !isDualAccessAdmin;
+
+    // Faculty can only see their own hours; admin can see any
+    if (isFacultyOnly && String(req.user.id) !== String(empId)) {
+      logger.warn('Unauthorized attempt to access faculty hours', { empId, userId: req.user.id });
+      return sendError(res, 'Unauthorized. You can only view your own workload.', 403);
+    }
+
+    const summary = await getFacultyWorkloadSummary(empId);
+    logger.info('Faculty workload summary retrieved', { empId, summary: { currentLoad: summary.currentLoad, totalCapacity: summary.totalWorkingHours, utilizationPercent: summary.utilizationPercent }, userId: req.user.id });
+    sendSuccess(res, { data: summary }, 200);
+  } catch (err) {
+    if (err.message.includes('Faculty not found')) {
+      logger.warn('Faculty not found for hours check', { empId: req.params.empId, userId: req.user.id });
+      return sendNotFound(res, err.message);
+    }
+    logger.error('Error retrieving faculty workload hours', { empId: req.params.empId, error: err.message, userId: req.user.id });
+    next(err);
+  }
+});
+
+// GET /api/workloads/workload-report (admin only)
+// Get workload report for all faculty, optionally filtered by year
+router.get('/workload-report', requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+
+    const { year } = req.query;
+    const yearFilter = year ? normalizeYear(year) : null;
+
+    const report = await getFacultyWorkloadReport(yearFilter);
+    const summary = {
+      totalFaculty: report.length,
+      overAllocatedCount: report.filter(f => f.isOverAllocated).length,
+      averageUtilization: (report.reduce((sum, f) => sum + f.utilizationPercent, 0) / report.length).toFixed(2),
+      yearFilter: yearFilter || 'all_years'
+    };
+
+    logger.info('Workload report generated', { summary, userId: req.user.id });
+    sendSuccess(res, { data: report, summary }, 200);
+  } catch (err) {
+    logger.error('Error generating workload report', { error: err.message, userId: req.user.id });
+    next(err);
   }
 });
 

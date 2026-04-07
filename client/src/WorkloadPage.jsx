@@ -90,6 +90,11 @@ const WorkloadPage = ({ submissions }) => {
   const [facultyList, setFacultyList] = useState([]);
   const [courseList, setCourseList] = useState([]);
 
+  // Faculty workload hours tracking
+  const [facultyWorkloadSummary, setFacultyWorkloadSummary] = useState(null);
+  const [workloadHoursLoading, setWorkloadHoursLoading] = useState(false);
+  const [workloadHoursError, setWorkloadHoursError] = useState('');
+
   const fetchMasterData = useCallback(async () => {
     try {
       const [fRes, cRes] = await Promise.all([
@@ -176,14 +181,33 @@ const WorkloadPage = ({ submissions }) => {
           allocationRow: w.allocationRow ?? null,
         }));
         setWorkloads(normalized);
+        
+        // Comprehensive logging for debugging
+        console.log('✅ Workloads Fetched Successfully:', {
+          totalCount: normalized.length,
+          breakdown: {
+            mainFaculty: normalized.filter(w => w.facultyRole === 'Main Faculty').length,
+            supportingFaculty: normalized.filter(w => w.facultyRole === 'Supporting Faculty').length,
+            ta: normalized.filter(w => w.facultyRole === 'TA').length,
+          },
+          sectionDistribution: Array.from(
+            new Set(normalized.map(w => w.section))
+          ).map(sec => ({
+            section: sec,
+            count: normalized.filter(w => w.section === sec).length,
+          })),
+          sampleData: normalized.slice(0, 5),
+        });
       } else {
         setWorkloads([]);
         setFetchError(data.message || 'Could not load workload details.');
+        console.error('❌ Failed to fetch workloads:', data.message);
         showToast(`⚠ ${data.message || 'Could not load workload collection data.'}`);
       }
-    } catch {
+    } catch (error) {
       setWorkloads([]);
       setFetchError('Could not load workload details from server.');
+      console.error('❌ Error fetching workloads:', error);
       showToast('⚠ Could not load workloads from server.');
     } finally {
       if (withLoader) setLoading(false);
@@ -247,6 +271,7 @@ const WorkloadPage = ({ submissions }) => {
         courseId: '', manualL: '', manualT: '', manualP: '',
       }));
       setErrors({});
+      setFacultyWorkloadSummary(null);
       return;
     }
     const f = facultyList.find(f => f.empId === val);
@@ -259,6 +284,35 @@ const WorkloadPage = ({ submissions }) => {
       courseId: '', manualL: '', manualT: '', manualP: '',
     }));
     setErrors({});
+
+    // Fetch faculty workload hours summary
+    if (f && f.empId) {
+      fetchFacultyWorkloadHours(f.empId);
+    }
+  };
+
+  // ── Fetch faculty workload hours summary ──
+  const fetchFacultyWorkloadHours = async (empId) => {
+    if (!empId) return;
+    setWorkloadHoursLoading(true);
+    setWorkloadHoursError('');
+    try {
+      const res = await fetch(`${API}/api/workloads/faculty-hours/${empId}`, { 
+        headers: authHeader() 
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFacultyWorkloadSummary(data.data);
+      } else {
+        setWorkloadHoursError(data.message || 'Failed to load workload hours');
+        setFacultyWorkloadSummary(null);
+      }
+    } catch (err) {
+      setWorkloadHoursError('Error loading workload hours');
+      setFacultyWorkloadSummary(null);
+    } finally {
+      setWorkloadHoursLoading(false);
+    }
   };
 
   // ── Course change: auto-pre-fill manual L/T/P with fixed values ──
@@ -429,6 +483,37 @@ const WorkloadPage = ({ submissions }) => {
             facultyRole: 'Only one TA can be assigned for the same subject and section.',
           }));
           showToast('⚠ TA is already assigned for this subject and section. Only one TA is allowed per section.');
+          setSaving(false);
+          return;
+        }
+      }
+
+      // ── WORKLOAD HOURS VALIDATION ──
+      // Check if assignment would exceed faculty capacity
+      if (form.empId !== '__other__' && facultyWorkloadSummary) {
+        const hoursToAssign = (Number(form.manualL) || 0) + (Number(form.manualT) || 0) + (Number(form.manualP) || 0);
+        const currentLoad = facultyWorkloadSummary.currentLoad;
+        const totalCapacity = facultyWorkloadSummary.totalWorkingHours;
+        
+        // If updating, subtract the old workload hours from current load
+        let adjustedCurrentLoad = currentLoad;
+        if (editTarget) {
+          const oldHours = (editTarget.manualL || editTarget.fixedL || 0) + 
+                          (editTarget.manualT || editTarget.fixedT || 0) + 
+                          (editTarget.manualP || editTarget.fixedP || 0);
+          adjustedCurrentLoad = Math.max(0, currentLoad - oldHours);
+        }
+
+        const newTotal = adjustedCurrentLoad + hoursToAssign;
+
+        if (newTotal > totalCapacity) {
+          const exceededBy = newTotal - totalCapacity;
+          const errorMsg = `Cannot assign ${hoursToAssign}h. Faculty would exceed capacity by ${exceededBy}h (would be ${newTotal}h/${totalCapacity}h)`;
+          setErrors((prev) => ({
+            ...prev,
+            manualL: errorMsg,
+          }));
+          showToast(`⚠ ${errorMsg}`);
           setSaving(false);
           return;
         }
@@ -884,18 +969,75 @@ const WorkloadPage = ({ submissions }) => {
             </div>
           )}
 
-          {/* ── SECTION 2: Course + Year + Section ── */}
-          <div className="wl-fsec-label">
-            <span className="wl-fsec-dot wl-dot-purple" />
-            Course &amp; Schedule
-            {prefCourses.length > 0 && (
-              <span className="wl-fsec-hint">Showing faculty's {prefCourses.length} preferred course(s)</span>
-            )}
-            {form.empId && prefCourses.length === 0 && (
-              <span className="wl-fsec-hint wl-fsec-warn">No preferences found — showing all courses</span>
-            )}
-          </div>
-          <div className="wl-form-row">
+          {/* ── Faculty Workload Capacity Panel ── */}
+          {form.empId && form.empId !== '__other__' && (
+            <div className="wl-capacity-panel">
+              {workloadHoursLoading ? (
+                <div style={{ padding: '12px', color: '#64748b', fontSize: '13px' }}>
+                  Loading workload capacity...
+                </div>
+              ) : workloadHoursError ? (
+                <div style={{ padding: '12px', color: '#dc2626', fontSize: '13px' }}>
+                  ⚠ {workloadHoursError}
+                </div>
+              ) : facultyWorkloadSummary ? (
+                <>
+                  <div className="wl-capacity-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                      fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M12 5v10M8 9h8"/>
+                    </svg>
+                    Weekly Teaching Hours Capacity
+                  </div>
+                  <div className="wl-capacity-grid">
+                    <div className="wl-cap-card">
+                      <div className="wl-cap-label">Total Capacity</div>
+                      <div className="wl-cap-value" style={{ color: '#3b82f6' }}>{facultyWorkloadSummary.totalWorkingHours}h</div>
+                    </div>
+                    <div className="wl-cap-card">
+                      <div className="wl-cap-label">Currently Assigned</div>
+                      <div className="wl-cap-value" style={{ color: '#8b5cf6' }}>{Math.round(facultyWorkloadSummary.currentLoad)}h</div>
+                    </div>
+                    <div className="wl-cap-card">
+                      <div className="wl-cap-label">Available Hours</div>
+                      <div className="wl-cap-value" style={{ color: facultyWorkloadSummary.remainingHours <= 0 ? '#dc2626' : '#16a34a' }}>
+                        {Math.round(facultyWorkloadSummary.remainingHours)}h
+                      </div>
+                    </div>
+                    <div className="wl-cap-card">
+                      <div className="wl-cap-label">Utilization</div>
+                      <div className="wl-cap-value" style={{ color: facultyWorkloadSummary.utilizationPercent > 90 ? '#dc2626' : '#f59e0b' }}>
+                        {facultyWorkloadSummary.utilizationPercent}%
+                      </div>
+                    </div>
+                  </div>
+                  {facultyWorkloadSummary.isOverAllocated && (
+                    <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', padding: '10px 12px', borderRadius: 6, fontSize: '12px', marginTop: '8px' }}>
+                      ⚠ Faculty is already over-allocated by {Math.round(facultyWorkloadSummary.currentLoad - facultyWorkloadSummary.totalWorkingHours)}h
+                    </div>
+                  )}
+                  {form.manualL && form.manualT && form.manualP && !editTarget && (
+                    <div style={{ background: '#eff6ff', border: '1px solid #93c5fd', color: '#1e40af', padding: '10px 12px', borderRadius: 6, fontSize: '12px', marginTop: '8px' }}>
+                      ℹ This assignment will use {Number(form.manualL) + Number(form.manualT) + Number(form.manualP)}h
+                    </div>
+                  )}
+                </>
+              ) : null}
+            </div>
+          )}
+
+          <>
+            <div className="wl-fsec-label">
+              <span className="wl-fsec-dot wl-dot-purple" />
+              Course &amp; Schedule
+              {prefCourses.length > 0 && (
+                <span className="wl-fsec-hint">Showing faculty's {prefCourses.length} preferred course(s)</span>
+              )}
+              {form.empId && prefCourses.length === 0 && (
+                <span className="wl-fsec-hint wl-fsec-warn">No preferences found — showing all courses</span>
+              )}
+            </div>
+            <div className="wl-form-row">
             <div className="wl-fg wl-fg-course">
               <label>Course to Assign *</label>
               <select value={form.courseId} onChange={e => handleCourseChange(e.target.value)}>
@@ -981,6 +1123,7 @@ const WorkloadPage = ({ submissions }) => {
               {errors.section && <span className="wl-err">{errors.section}</span>}
             </div>
           </div>
+          </>
 
           {/* ── SECTION 3: Fixed L-T-P-C from curriculum ── */}
           {selectedCourse && (

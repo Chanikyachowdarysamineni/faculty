@@ -226,12 +226,31 @@ const AllocationPage = ({ isAdmin = true }) => {
       const result = await fetchAllPages('/api/workloads', { year: yearKey }, { headers: authHeader() });
       if (!result.success) {
         setWorkloads([]);
+        console.error('Failed to fetch workloads:', result.message);
         return { success: false, message: result.message || 'Failed to load workloads.' };
       }
-      setWorkloads(result.data || []);
+      
+      // Ensure we have an array of workloads
+      const workloadData = Array.isArray(result.data) ? result.data : [];
+      setWorkloads(workloadData);
+      
+      // Detailed logging for debugging
+      console.log('✅ Fetched Workloads:', {
+        totalCount: workloadData.length,
+        year: yearKey,
+        breakdown: {
+          mainFaculty: workloadData.filter(w => w.facultyRole === 'Main Faculty').length,
+          supportingFaculty: workloadData.filter(w => w.facultyRole === 'Supporting Faculty').length,
+          ta: workloadData.filter(w => w.facultyRole === 'TA').length,
+        },
+        sampleData: workloadData.slice(0, 3),
+        allData: workloadData,
+      });
+      
       return { success: true };
-    } catch {
+    } catch (error) {
       setWorkloads([]);
+      console.error('Error fetching workloads:', error);
       return { success: false, message: 'Failed to load workloads.' };
     } finally {
       setWorkloadsLoading(false);
@@ -278,15 +297,41 @@ const AllocationPage = ({ isAdmin = true }) => {
   // Maps `courseId__section__T__rowIdx` / `__P__rowIdx` → empId for TA workloads with allocationRow
   const taWorkloadMap = useMemo(() => {
     const m = {};
-    workloads.forEach(w => {
-      if (w.facultyRole === 'TA' && w.allocationRow != null && w.empId) {
+    const taWorkloads = workloads.filter(w => w.facultyRole === 'TA');
+    
+    console.log('📋 Building TA Workload Map:', {
+      totalWorkloads: workloads.length,
+      taWorkloadsCount: taWorkloads.length,
+      taWorkloadsSample: taWorkloads.slice(0, 5),
+    });
+    
+    taWorkloads.forEach(w => {
+      if (w.allocationRow != null && w.empId) {
         const rowIdx = Number(w.allocationRow);
         const course = yearCourses.find(c => c.id === Number(w.courseId));
-        if (!course || rowIdx < 1 || rowIdx > 3) return;
-        if (course.T > 0) m[`${w.courseId}__${w.section}__T__${rowIdx}`] = w.empId;
-        if (course.P > 0) m[`${w.courseId}__${w.section}__P__${rowIdx}`] = w.empId;
+        if (!course || rowIdx < 1 || rowIdx > 3) {
+          console.warn('⚠️ Skipping TA - invalid course or row:', { 
+            empId: w.empId, 
+            courseId: w.courseId, 
+            rowIdx, 
+            courseFound: !!course 
+          });
+          return;
+        }
+        if (course.T > 0) {
+          const tKey = `${w.courseId}__${w.section}__T__${rowIdx}`;
+          m[tKey] = w.empId;
+          console.log('✅ Added TA to Tutorial slot:', { key: tKey, empId: w.empId });
+        }
+        if (course.P > 0) {
+          const pKey = `${w.courseId}__${w.section}__P__${rowIdx}`;
+          m[pKey] = w.empId;
+          console.log('✅ Added TA to Practical slot:', { key: pKey, empId: w.empId });
+        }
       }
     });
+    
+    console.log('📊 Final TA Workload Map:', { mapSize: Object.keys(m).length, map: m });
     return m;
   }, [workloads, yearCourses]);
 
@@ -340,11 +385,40 @@ const AllocationPage = ({ isAdmin = true }) => {
     try {
       const data = await fetchAllPages('/api/allocations', {}, { headers: authHeader() });
       if (!data.success) {
+        console.error('❌ Failed to fetch allocations:', data.message);
         return { success: false, message: data.message || 'Could not load allocations.' };
       }
-      setAllocations(data.data || []);
+      
+      // Ensure we have an array
+      const allocArray = Array.isArray(data.data) ? data.data : [];
+      setAllocations(allocArray);
+      
+      // COMPREHENSIVE LOGGING - Validate all allocations are loaded
+      const allocStats = {
+        totalAllocations: allocArray.length,
+        withLectureSlots: allocArray.filter(a => a.lectureSlots?.length > 0 || a.lectureSlot?.empId).length,
+        withTutorialSlots: allocArray.filter(a => a.tutorialSlots?.length > 0).length,
+        withPracticalSlots: allocArray.filter(a => a.practicalSlots?.length > 0).length,
+        totalFacultyAssignments: allocArray.reduce((sum, a) => {
+          let count = 0;
+          if (a.lectureSlots?.length > 0) count += a.lectureSlots.filter(s => s?.empId).length;
+          if (a.lectureSlot?.empId) count += 1;
+          if (a.tutorialSlots?.length > 0) count += a.tutorialSlots.filter(s => s?.empId).length;
+          if (a.practicalSlots?.length > 0) count += a.practicalSlots.filter(s => s?.empId).length;
+          return sum + count;
+        }, 0),
+      };
+      
+      console.log('✅ ALL ALLOCATIONS LOADED:', {
+        ...allocStats,
+        serverStats: data.stats || {},
+        sampleAllocations: allocArray.slice(0, 3),
+        allAllocations: allocArray,
+      });
+      
       return { success: true };
-    } catch {
+    } catch (error) {
+      console.error('❌ Error fetching allocations:', error);
       return { success: false, message: 'Could not load allocations.' };
     } finally {
       if (withLoader) setLoading(false);
@@ -398,38 +472,79 @@ const AllocationPage = ({ isAdmin = true }) => {
   // ── Build allocMap from server data ──────────────────────────────────────
   useEffect(() => {
     const map = {};
-    allocations
-      .filter(a => a.year === yearKey)
-      .forEach(a => {
-        const lSlots =
-          a.lectureSlots && a.lectureSlots.length > 0
-            ? a.lectureSlots
-            : a.lectureSlot?.empId ? [a.lectureSlot] : [];
-        lSlots.forEach((sl, i) => {
-          if (sl.empId) map[`${a.courseId}__${a.section}__L__${i}`] = sl.empId;
-        });
-        (a.tutorialSlots  || []).forEach((sl, i) => {
-          if (sl.empId) map[`${a.courseId}__${a.section}__T__${i}`] = sl.empId;
-        });
-        (a.practicalSlots || []).forEach((sl, i) => {
-          if (sl.empId) map[`${a.courseId}__${a.section}__P__${i}`] = sl.empId;
-        });
+    const allocationsByYear = allocations.filter(a => a.year === yearKey);
+    
+    console.log('🔄 Building allocMap from allocations:', {
+      totalAllocations: allocations.length,
+      allocationsForYear: allocationsByYear.length,
+      year: yearKey,
+    });
+    
+    allocationsByYear.forEach(a => {
+      // CRITICAL: Get ALL lecture slots (both array and legacy singular slot)
+      const lSlots =
+        a.lectureSlots && a.lectureSlots.length > 0
+          ? a.lectureSlots
+          : a.lectureSlot?.empId ? [a.lectureSlot] : [];
+      
+      // Process ALL lecture slots - don't skip any
+      lSlots.forEach((sl, i) => {
+        if (sl.empId) {
+          const key = `${a.courseId}__${a.section}__L__${i}`;
+          map[key] = sl.empId;
+          console.log('✅ Added Lecture slot:', { key, empId: sl.empId, empName: sl.empName });
+        }
       });
+      
+      // Process ALL tutorial slots - no filtering
+      (a.tutorialSlots || []).forEach((sl, i) => {
+        if (sl.empId) {
+          const key = `${a.courseId}__${a.section}__T__${i}`;
+          map[key] = sl.empId;
+          console.log('✅ Added Tutorial slot:', { key, slot: i + 1, empId: sl.empId });
+        }
+      });
+      
+      // Process ALL practical slots - no filtering
+      (a.practicalSlots || []).forEach((sl, i) => {
+        if (sl.empId) {
+          const key = `${a.courseId}__${a.section}__P__${i}`;
+          map[key] = sl.empId;
+          console.log('✅ Added Practical slot:', { key, slot: i + 1, empId: sl.empId });
+        }
+      });
+    });
+    
     // ALWAYS override L/T/P Row 0 (main faculty) from mainFacultyMap (workload is source of truth)
     Object.entries(mainFacultyMap).forEach(([key, val]) => {
       if (val.empId) {
         const [courseId, section] = key.split('__');
         const course = yearCourses.find(c => c.id === parseInt(courseId));
         map[`${key}__L__0`] = val.empId;
-        // Also set T R1 and P R1 to same main faculty if those types exist for the course
         if (course?.T > 0) map[`${key}__T__0`] = val.empId;
         if (course?.P > 0) map[`${key}__P__0`] = val.empId;
+        console.log('✅ Applied Main Faculty from workload:', { key, empId: val.empId });
       }
     });
+    
     // Overlay TA workload row assignments (source of truth for R2-R4 TA slots)
     Object.entries(taWorkloadMap).forEach(([key, empId]) => {
-      if (empId) map[key] = empId;
+      if (empId) {
+        map[key] = empId;
+        console.log('✅ Applied TA from workload:', { key, empId });
+      }
     });
+    
+    console.log('📊 FINAL ALLOCMAP STATS:', {
+      totalMappings: Object.keys(map).length,
+      map,
+      mappedByType: {
+        lecture: Object.keys(map).filter(k => k.includes('__L__')).length,
+        tutorial: Object.keys(map).filter(k => k.includes('__T__')).length,
+        practical: Object.keys(map).filter(k => k.includes('__P__')).length,
+      },
+    });
+    
     setAllocMap(map);
     setUnsaved(false);
   }, [allocations, yearKey, mainFacultyMap, taWorkloadMap, yearCourses]);
@@ -469,9 +584,32 @@ const AllocationPage = ({ isAdmin = true }) => {
   // ── Build faculty slot object, prefer details from assigned workloads ──
   const toSlot = useCallback((empId, courseId, section) => {
     if (!empId) return { empId: '', empName: '', designation: '', hours: 0 };
+    
     // Try to find a matching workload for this slot
-    const wl = workloads.find(w => w.empId === empId && w.courseId === courseId && w.year === yearKey && w.section === section);
-    if (wl) return { empId: wl.empId, empName: wl.empName, designation: wl.designation, hours: 0 };
+    // IMPORTANT: Filter by ALL criteria to get the exact workload entry
+    const wl = workloads.find(w => 
+      w.empId === empId && 
+      w.courseId === courseId && 
+      w.year === yearKey && 
+      w.section === section
+    );
+    
+    if (wl) {
+      console.log('✅ Workload found for slot:', { empId, courseId, section, workload: wl });
+      return { empId: wl.empId, empName: wl.empName, designation: wl.designation, hours: 0 };
+    }
+    
+    // Log if workload not found but details exist separately
+    const allWorkloadsForEmp = workloads.filter(w => w.empId === empId);
+    if (allWorkloadsForEmp.length > 0) {
+      console.warn('⚠️ No exact match for slot, but faculty has other workloads:', { 
+        empId, 
+        courseId, 
+        section, 
+        otherWorkloads: allWorkloadsForEmp 
+      });
+    }
+    
     // Fallback to static faculty list
     const f = facultyList.find(ff => ff.empId === empId);
     return f
@@ -732,6 +870,8 @@ const AllocationPage = ({ isAdmin = true }) => {
 
   const allocationExportRows = useMemo(() => {
     const rows = [];
+    let skippedCount = 0;
+    
     yearCourses.forEach((course) => {
       sections.forEach((section) => {
         ['L', 'T', 'P'].forEach((type) => {
@@ -739,7 +879,10 @@ const AllocationPage = ({ isAdmin = true }) => {
           for (let i = 0; i < rowsCount; i += 1) {
             const key = `${course.id}__${section}__${type}__${i}`;
             const empId = allocMap[key] || '';
-            if (!empId) continue;
+            if (!empId) {
+              skippedCount += 1;
+              continue;
+            }
             const fac = facultyList.find(f => f.empId === empId);
             rows.push({
               program: course.program,
@@ -759,6 +902,19 @@ const AllocationPage = ({ isAdmin = true }) => {
         });
       });
     });
+    
+    // Validation logging
+    console.log('📈 Allocation Export Rows Generation:', {
+      totalRowsGenerated: rows.length,
+      skippedEmptySlots: skippedCount,
+      byType: {
+        lecture: rows.filter(r => r.type === 'L').length,
+        tutorial: rows.filter(r => r.type === 'T').length,
+        practical: rows.filter(r => r.type === 'P').length,
+      },
+      sampleRows: rows.slice(0, 5),
+    });
+    
     return rows;
   }, [yearCourses, sections, allocMap, yearKey, facultyList]);
 

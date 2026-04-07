@@ -19,12 +19,25 @@ const Setting          = require('../models/Setting');
 const { parsePagination, buildMeta } = require('../utils/pagination');
 const { logAuditEvent } = require('../utils/audit');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const logger           = require('../utils/logger');
 
 const router = express.Router();
 
 const sec = (n) => Array.from({ length: n }, (_, i) => String(i + 1));
 const DEFAULT_SECTIONS = {
   I: sec(19), II: sec(22), III: sec(19), IV: sec(9), 'M.Tech': ['1', '2'],
+};
+
+// CRITICAL: Normalize year format (numeric or Roman numeral) to canonical form
+// Maps: '1' -> 'I', '2' -> 'II', '3' -> 'III', '4' -> 'IV', 'M.Tech' -> 'M.Tech'
+const normalizeYear = (year) => {
+  const trimmed = String(year || '').trim().toUpperCase();
+  if (trimmed === 'I' || trimmed === '1') return 'I';
+  if (trimmed === 'II' || trimmed === '2') return 'II';
+  if (trimmed === 'III' || trimmed === '3') return 'III';
+  if (trimmed === 'IV' || trimmed === '4') return 'IV';
+  if (trimmed === 'M.TECH') return 'M.Tech';
+  return trimmed; // Return as-is if not recognized
 };
 
 const getSectionsConfig = async () => {
@@ -87,13 +100,28 @@ const toClient = (doc) => ({
 });
 
 // GET /api/allocations
+// CRITICAL: Returns ALL allocation records matching the filter.
+// Uses find() (NOT findOne()) to ensure complete data.
+// Supports filtering by courseId, year, and/or section.
+// If no filters provided, returns ALL allocations (paginated).
 router.get('/', requireAuth, requireAdmin, async (req, res, next) => {
   try {
+    // Disable caching to prevent 304 Not Modified responses
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
     const { page, limit, skip } = parsePagination(req.query);
     const filter = {};
+    
+    // MANDATORY: Apply all provided filters (trim for consistency)
     if (req.query.courseId) filter.courseId = Number(req.query.courseId);
-    if (req.query.year)     filter.year     = req.query.year;
-    if (req.query.section) filter.section = req.query.section;
+    // CRITICAL: Normalize year to canonical format (I/II/III/IV or M.Tech) for consistent filtering
+    if (req.query.year) filter.year = normalizeYear(req.query.year);
+    if (req.query.section) filter.section = String(req.query.section).trim();
+    
+    // CRITICAL: Always use find() — NEVER findOne()
+    // This ensures ALL matching records are returned, not just the first one
     const [total, docs] = await Promise.all([
       CourseAllocation.countDocuments(filter),
       CourseAllocation.find(filter)
@@ -103,13 +131,51 @@ router.get('/', requireAuth, requireAdmin, async (req, res, next) => {
         .limit(limit)
         .lean(),
     ]);
-    res.json({ success: true, data: docs.map(toClient), meta: buildMeta({ total, page, limit }) });
-  } catch (err) { next(err); }
+    
+    // Logging for data integrity monitoring
+    const docsWithData = docs.filter(d => 
+      (d.lectureSlots?.some(s => s?.empId)) || 
+      (d.lectureSlot?.empId) ||
+      (d.tutorialSlots?.some(s => s?.empId)) || 
+      (d.practicalSlots?.some(s => s?.empId))
+    );
+    
+    // Log allocation retrieval
+    logger.info('Allocations listed', {
+      userId: req.user.id,
+      filter: JSON.stringify(filter),
+      total,
+      returned: docs.length,
+      withAssignments: docsWithData.length,
+      page,
+      limit
+    });
+    
+    res.json({ 
+      success: true, 
+      data: docs.map(toClient), 
+      meta: buildMeta({ total, page, limit }),
+      stats: { 
+        totalRecords: total,
+        returnedRecords: docs.length,
+        recordsWithAssignments: docsWithData.length,
+        filter: Object.keys(filter).length > 0 ? filter : { note: 'NO_FILTERS_APPLIED_RETURNS_ALL' }
+      }
+    });
+  } catch (err) { 
+    logger.error('Error listing allocations', { error: err.message, userId: req.user.id });
+    next(err); 
+  }
 });
 
 // GET /api/allocations/workload-sheets  — per-faculty aggregated view
 router.get('/workload-sheets', requireAuth, requireAdmin, async (req, res, next) => {
   try {
+    // Disable caching to prevent 304 Not Modified responses
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
     const docs = await CourseAllocation.find().lean();
 
     // Build a map: empId → { faculty info, rows[] }
@@ -165,6 +231,11 @@ router.get('/workload-sheets', requireAuth, requireAdmin, async (req, res, next)
 // GET /api/allocations/export/csv
 router.get('/export/csv', requireAuth, requireAdmin, async (req, res, next) => {
   try {
+    // Disable caching for dynamic data
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
     const docs = await CourseAllocation.find().sort({ courseId: 1, year: 1, section: 1 }).lean();
 
     const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -200,9 +271,12 @@ router.get('/export/csv', requireAuth, requireAdmin, async (req, res, next) => {
 router.post('/', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const {
-      courseId, year, section,
+      courseId, year: rawYear, section,
       lectureSlot, lectureSlots, tutorialSlots, practicalSlots,
     } = req.body;
+
+    // CRITICAL: Normalize year to canonical format (I/II/III/IV or M.Tech)
+    const year = normalizeYear(rawYear);
 
     const allSlots = [
       ...(Array.isArray(lectureSlots) ? lectureSlots : []),

@@ -813,6 +813,76 @@
   .wl-year-tabs    { gap: 6px; padding: 10px 12px; }
 }
 
+/* ── Faculty Workload Capacity Panel ── */
+.wl-capacity-panel {
+  margin: 16px 0 18px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #f5f3ff 100%);
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  padding: 16px 14px;
+}
+
+.wl-capacity-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1e40af;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.wl-capacity-title svg {
+  min-width: 14px;
+  color: #3b82f6;
+}
+
+.wl-capacity-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.wl-cap-card {
+  background: #fff;
+  border: 1px solid #e0e7ff;
+  border-radius: 8px;
+  padding: 12px 10px;
+  text-align: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.wl-cap-card:hover {
+  border-color: #bfdbfe;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.wl-cap-label {
+  font-size: 10.5px;
+  color: #64748b;
+  font-weight: 600;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+
+.wl-cap-value {
+  font-size: 18px;
+  font-weight: 800;
+  font-family: 'Monaco', 'Courier New', monospace;
+}
+
+@media (max-width: 900px) {
+  .wl-capacity-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 600px) {
+  .wl-capacity-grid { grid-template-columns: 1fr; }
+}
+
 /* ══════════════════════════════════════════════════════════
    FACULTY WORKLOAD HOURS SUMMARY SECTION
 ══════════════════════════════════════════════════════════ */

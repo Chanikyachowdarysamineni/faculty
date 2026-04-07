@@ -25,6 +25,18 @@ const { validateCourseCreate, validatePagination } = require('../middleware/vali
 
 const router = express.Router();
 
+// CRITICAL: Normalize year format (numeric or Roman numeral) to canonical form
+// Maps: '1' -> 'I', '2' -> 'II', '3' -> 'III', '4' -> 'IV', 'M.Tech' -> 'M.Tech'
+const normalizeYear = (year) => {
+  const trimmed = String(year || '').trim().toUpperCase();
+  if (trimmed === 'I' || trimmed === '1') return 'I';
+  if (trimmed === 'II' || trimmed === '2') return 'II';
+  if (trimmed === 'III' || trimmed === '3') return 'III';
+  if (trimmed === 'IV' || trimmed === '4') return 'IV';
+  if (trimmed === 'M.TECH') return 'M.Tech';
+  return trimmed; // Return as-is if not recognized
+};
+
 const COURSE_TYPES = ['Mandatory', 'Department Elective', 'Open Elective', 'Minors', 'Honours'];
 
 const toClient = (doc) => ({
@@ -49,7 +61,8 @@ router.get('/', requireAuth, validatePagination, async (req, res, next) => {
     const filter = {};
     if (req.query.program)    filter.program    = req.query.program;
     if (req.query.courseType) filter.courseType = req.query.courseType;
-    if (req.query.year)       filter.year       = req.query.year;
+    // CRITICAL: Normalize year to canonical format (I/II/III/IV or M.Tech) for consistent filtering
+    if (req.query.year)       filter.year       = normalizeYear(req.query.year);
     if (req.query.search) {
       const q = String(req.query.search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       filter.$or = [
