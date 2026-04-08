@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import API from './config';
 import { fetchAllPages, authJsonHeaders } from './utils/apiFetchAll';
+import { useSharedData } from './DataContext';
 import './MySubmissionsPage.css';
 
 const MySubmissionsPage = ({
@@ -10,8 +11,20 @@ const MySubmissionsPage = ({
   onUpdateSubmission,
   onNavigateToForm,
 }) => {
+  const { faculty: contextFaculty, courses: contextCourses } = useSharedData();
+  
   const [facultyList, setFacultyList] = useState([]);
   const [courseList, setCourseList] = useState([]);
+
+  // Sync shared context data to local state
+  useEffect(() => {
+    if (contextFaculty && contextFaculty.length > 0) {
+      setFacultyList(contextFaculty);
+    }
+    if (contextCourses && contextCourses.length > 0) {
+      setCourseList(contextCourses);
+    }
+  }, [contextFaculty, contextCourses]);
   const mySubmission = submissions.find(s => s.empId === currentUser.id);
   const myFaculty = useMemo(
     () => facultyList.find(f => f.empId === currentUser.id),
@@ -38,51 +51,6 @@ const MySubmissionsPage = ({
     if (!date) return 'Not synced yet';
     return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }, []);
-
-  const loadMasterData = useCallback(async ({ silent = false } = {}) => {
-    if (!silent) setMasterLoading(true);
-    setReadApiError('');
-    try {
-      const [fData, cData] = await Promise.all([
-        fetchAllPages('/api/faculty', {}, { headers: authHeaders() }),
-        fetchAllPages('/api/courses', {}, { headers: authHeaders() }),
-      ]);
-      if (!fData.success || !cData.success) {
-        setReadApiError(fData.message || cData.message || 'Failed to load faculty/course data.');
-        return;
-      }
-      setFacultyList(fData.data || []);
-      setCourseList(cData.data || []);
-      setLastSyncedAt(new Date());
-    } catch {
-      setReadApiError('Failed to load faculty/course data.');
-    } finally {
-      if (!silent) setMasterLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadMasterData({ silent: false });
-  }, [loadMasterData]);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      loadMasterData({ silent: true });
-    }, 15000);
-    return () => clearInterval(id);
-  }, [loadMasterData]);
-
-  useEffect(() => {
-    const onVisible = () => {
-      if (!document.hidden) loadMasterData({ silent: true });
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('focus', onVisible);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible);
-      window.removeEventListener('focus', onVisible);
-    };
-  }, [loadMasterData]);
 
   const getCourse = cid => courseList.find(c => String(c.id) === String(cid));
 

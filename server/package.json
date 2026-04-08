@@ -9,7 +9,13 @@
     "dev": "nodemon src/index.js",
     "seed": "node src/seed.js",
     "diagnostic": "node src/diagnostic.js",
-    "create-indexes": "node src/scripts/create_indexes.js"
+    "create-indexes": "node src/scripts/create_indexes.js",
+    "test": "jest --passWithNoTests",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:unit": "jest --testPathPattern=test/unit",
+    "test:integration": "jest --testPathPattern=test/integration",
+    "test:all": "jest --passWithNoTests --forceExit"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -25,6 +31,9 @@
     "nodemailer": "^8.0.2"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "jest": "^29.7.0",
+    "mongodb-memory-server": "^9.1.6",
+    "nodemon": "^3.1.0",
+    "supertest": "^7.0.0"
   }
 }

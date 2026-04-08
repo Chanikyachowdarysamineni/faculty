@@ -13,12 +13,10 @@ import API from './config';
 import './AllocationPage.css';
 import { exportAsCSV, exportAsExcel, exportAsPDF } from './utils/exportUtils';
 import { fetchAllPages, fetchJsonWithRetry, authJsonHeaders } from './utils/apiFetchAll';
+import { useSharedData } from './DataContext';
 import {
   DEFAULT_SECTIONS,
   fetchSectionsConfig,
-  addSectionConfig,
-  renameSectionConfig,
-  deleteSectionConfig,
 } from './utils/sectionsApi';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -174,6 +172,8 @@ const CellPicker = ({ courseId, section, type, rowIdx, empId, isAuto, isAdmin, o
 
 // ── AllocationPage ─────────────────────────────────────────────────────────────
 const AllocationPage = ({ isAdmin = true }) => {
+  const { faculty: contextFaculty, courses: contextCourses } = useSharedData();
+  
   const [allocations,   setAllocations]   = useState([]);
   const [allocMap,      setAllocMap]      = useState({});
   const [activeProgram, setActiveProgram] = useState('B.Tech');
@@ -190,6 +190,16 @@ const AllocationPage = ({ isAdmin = true }) => {
   const [courseList, setCourseList] = useState([]);
   const persistTimersRef = useRef({});
 
+  // Sync shared context data to local state
+  useEffect(() => {
+    if (contextFaculty && contextFaculty.length > 0) {
+      setFacultyList(contextFaculty);
+    }
+    if (contextCourses && contextCourses.length > 0) {
+      setCourseList(contextCourses);
+    }
+  }, [contextFaculty, contextCourses]);
+
   // yearKey must be defined before any hook that uses it
   const yearKey = activeProgram === 'M.Tech' ? 'M.Tech' : activeYear;
 
@@ -198,23 +208,6 @@ const AllocationPage = ({ isAdmin = true }) => {
   const formatSyncedAt = useCallback((date) => {
     if (!date) return 'Not synced yet';
     return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  }, []);
-
-  const fetchMasterData = useCallback(async () => {
-    try {
-      const [fRes, cRes] = await Promise.all([
-        fetchAllPages('/api/faculty', {}, { headers: authHeader() }),
-        fetchAllPages('/api/courses', {}, { headers: authHeader() }),
-      ]);
-      if (!fRes.success || !cRes.success) {
-        return { success: false, message: fRes.message || cRes.message || 'Failed to load faculty/course data.' };
-      }
-      setFacultyList(fRes.data || []);
-      setCourseList(cRes.data || []);
-      return { success: true };
-    } catch {
-      return { success: false, message: 'Failed to load faculty/course data.' };
-    }
   }, []);
 
   // Workloads for auto-populating faculty details
@@ -429,14 +422,13 @@ const AllocationPage = ({ isAdmin = true }) => {
     if (withLoader) setLoading(true);
     setApiError('');
 
-    const [masterRes, allocRes, workloadRes, mainFacultyRes] = await Promise.all([
-      fetchMasterData(),
+    const [allocRes, workloadRes, mainFacultyRes] = await Promise.all([
       fetchAllocations({ withLoader: false }),
       fetchWorkloads(),
       fetchMainFaculty(),
     ]);
 
-    const failed = [masterRes, allocRes, workloadRes, mainFacultyRes].find((result) => !result?.success);
+    const failed = [allocRes, workloadRes, mainFacultyRes].find((result) => !result?.success);
     if (failed) {
       setApiError(failed.message || 'Failed to refresh allocation data.');
     } else {
@@ -444,7 +436,7 @@ const AllocationPage = ({ isAdmin = true }) => {
     }
 
     if (withLoader) setLoading(false);
-  }, [fetchMasterData, fetchAllocations, fetchWorkloads, fetchMainFaculty, markSynced]);
+  }, [fetchAllocations, fetchWorkloads, fetchMainFaculty, markSynced]);
 
   useEffect(() => {
     refreshAllocationReadData({ withLoader: true });
@@ -842,31 +834,7 @@ const AllocationPage = ({ isAdmin = true }) => {
     }
   };
 
-  const addSection = async () => {
-    const section = window.prompt(`Add section for ${yearKey}:`);
-    if (!section) return;
-    const data = await addSectionConfig(yearKey, section.trim());
-    if (!data.success) return showToast(`⚠ ${data.message || 'Could not add section.'}`);
-    await loadSectionsConfig();
-    showToast('Section added.');
-  };
 
-  const editSection = async (section) => {
-    const next = window.prompt(`Rename section '${section}'`, section);
-    if (!next || next.trim() === section) return;
-    const data = await renameSectionConfig(yearKey, section, next.trim());
-    if (!data.success) return showToast(`⚠ ${data.message || 'Could not edit section.'}`);
-    await loadSectionsConfig();
-    showToast('Section updated.');
-  };
-
-  const removeSection = async (section) => {
-    if (!window.confirm(`Delete section '${section}' for ${yearKey}?`)) return;
-    const data = await deleteSectionConfig(yearKey, section);
-    if (!data.success) return showToast(`⚠ ${data.message || 'Could not delete section.'}`);
-    await loadSectionsConfig();
-    showToast('Section deleted.');
-  };
 
   const allocationExportRows = useMemo(() => {
     const rows = [];
@@ -1048,19 +1016,8 @@ const AllocationPage = ({ isAdmin = true }) => {
         {sections.map((s, i) => (
           <span key={`${s}-${i}`} className="ap-section-pill">
             Sec {i + 1} ({s})
-            {isAdmin && (
-              <>
-                <button className="ap-sec-action" onClick={() => editSection(s)} title="Edit section">✎</button>
-                <button className="ap-sec-action ap-sec-action-del" onClick={() => removeSection(s)} title="Delete section">✕</button>
-              </>
-            )}
           </span>
         ))}
-        {isAdmin && (
-          <button className="ap-btn ap-btn-add-sec" onClick={addSection}>
-            + Add Section
-          </button>
-        )}
       </div>
 
       {/* ── Legend ── */}

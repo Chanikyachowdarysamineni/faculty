@@ -1,31 +1,38 @@
 import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import { fetchAllPages, authJsonHeaders } from './utils/apiFetchAll';
+import { useSharedData } from './DataContext';
 import './ExtraFacultyPage.css';
 
 const ExtraFacultyPage = () => {
+  const { faculty: contextFaculty } = useSharedData();
+  
   const [loading, setLoading] = useState(true);
   const [facultyList, setFacultyList] = useState([]);
   const [workloads, setWorkloads] = useState([]);
   const [search, setSearch] = useState('');
   const [fetchError, setFetchError] = useState('');
 
+  // Sync shared context data to local state
+  useEffect(() => {
+    if (contextFaculty && contextFaculty.length > 0) {
+      setFacultyList(contextFaculty);
+    }
+  }, [contextFaculty]);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setFetchError('');
     try {
       const headers = authJsonHeaders();
-      const [fRes, wRes] = await Promise.all([
-        fetchAllPages('/api/faculty', {}, { headers }),
+      const [wRes] = await Promise.all([
         fetchAllPages('/api/workloads', {}, { headers }),
       ]);
-      setFacultyList(fRes.success ? (fRes.data || []) : []);
       setWorkloads(wRes.success ? (wRes.data || []) : []);
-      if (!fRes.success || !wRes.success) {
-        setFetchError(fRes.message || wRes.message || 'Some details could not be fetched.');
+      if (!wRes.success) {
+        setFetchError(wRes.message || 'Some details could not be fetched.');
       }
     } catch (error) {
       setFetchError(error?.message || 'Could not fetch extra faculty details.');
-      setFacultyList([]);
       setWorkloads([]);
     } finally {
       setLoading(false);

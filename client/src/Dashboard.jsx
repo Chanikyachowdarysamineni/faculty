@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import FacultyPage          from './FacultyPage';
 import CoursesPage          from './CoursesPage';
+import SectionManagementPage from './SectionManagementPage';
 import WorkloadPage         from './WorkloadPage';
 import AllocationPage       from './AllocationPage';
 import ExtraFacultyPage     from './ExtraFacultyPage';
@@ -12,6 +13,7 @@ import AuditLogPage         from './AuditLogPage';
 import API                  from './config';
 import { fetchAllPages, fetchJsonWithRetry }    from './utils/apiFetchAll';
 import { fetchSectionsConfig } from './utils/sectionsApi';
+import { useSharedData } from './DataContext';
 import './Dashboard.css';
 
 const NAV_ITEMS = [
@@ -53,6 +55,21 @@ const NAV_ITEMS = [
         fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
         <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+      </svg>
+    ),
+  },
+  {
+    key: 'sections',
+    label: 'Sections',
+    colorClass: 'nav-color-indigo',
+    adminOnly: true,
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+        fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="8" cy="5" r="3"/>
+        <path d="M11 7H21M11 12H21M11 17H21"/>
+        <circle cx="8" cy="12" r="3"/>
+        <circle cx="8" cy="19" r="3"/>
       </svg>
     ),
   },
@@ -172,10 +189,17 @@ const toPct = (value) => Math.max(0, Math.min(100, value));
 
 const AUTO_REFRESH_MS = 60000;
 
-const Dashboard = ({ user, onLogout }) => {
+const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
   const [activeNav, setActiveNav] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [dashMode, setDashMode] = useState(null);
+
+  // Helper to format session time
+  const formatSessionTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // â”€â”€ Shared state across pages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [formEnabled,  setFormEnabled]  = useState(true);
@@ -190,6 +214,9 @@ const Dashboard = ({ user, onLogout }) => {
 
   const token = () => localStorage.getItem('wlm_token') || '';
   const authHeaders = useCallback(() => ({ Authorization: `Bearer ${token()}` }), []);
+
+  // Use shared data context
+  const { setFaculty, setCourses, setAllocations, setSectionsConfig: setSharedSectionsConfig } = useSharedData();
 
   const [dashboardData, setDashboardData] = useState({
     loading: false,
@@ -326,6 +353,11 @@ const Dashboard = ({ user, onLogout }) => {
         error: successCount === 0 ? 'Could not load live dashboard data.' : '',
       }));
 
+      // Also update shared context
+      if (nextData.faculty) setFaculty(nextData.faculty);
+      if (nextData.allocations) setAllocations(nextData.allocations);
+      if (nextData.courses) setCourses(nextData.courses);
+
       if (successCount > 0) {
         setDashboardLastSyncedAt(new Date());
       }
@@ -373,6 +405,10 @@ const Dashboard = ({ user, onLogout }) => {
         courses: coursesOk ? (Array.isArray(cReq.value.data) ? cReq.value.data : []) : prev.courses,
       }));
 
+      // Also update shared context
+      if (facultyOk) setFaculty(Array.isArray(fReq.value.data) ? fReq.value.data : []);
+      if (coursesOk) setCourses(Array.isArray(cReq.value.data) ? cReq.value.data : []);
+
       if (hasAnySuccess) {
         setDashboardLastSyncedAt(new Date());
         if (facultyOk && coursesOk) {
@@ -404,10 +440,12 @@ const Dashboard = ({ user, onLogout }) => {
     try {
       const sections = await fetchSectionsConfig();
       setSectionsConfig(sections || null);
+      setSharedSectionsConfig(sections || null);
     } catch {
       setSectionsConfig(null);
+      setSharedSectionsConfig(null);
     }
-  }, [isAdmin]);
+  }, [isAdmin, setSharedSectionsConfig]);
 
   useEffect(() => {
     if (!isAdmin || activeNav !== 'dashboard') return;
@@ -459,20 +497,29 @@ const Dashboard = ({ user, onLogout }) => {
         method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ section: input.trim() }),
       });
       const data = await res.json();
-      if (data.success) setSectionsConfig(data.data || null);
+      if (data.success) {
+        setSectionsConfig(data.data || null);
+        setSharedSectionsConfig(data.data || null);
+      }
     } else if (mode === 'rename') {
       if (!input.trim() || input.trim() === section) return;
       const res = await fetch(`${API}/api/settings/sections/${encodeURIComponent(sectionYear)}/${encodeURIComponent(section)}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ newSection: input.trim() }),
       });
       const data = await res.json();
-      if (data.success) setSectionsConfig(data.data || null);
+      if (data.success) {
+        setSectionsConfig(data.data || null);
+        setSharedSectionsConfig(data.data || null);
+      }
     } else if (mode === 'delete') {
       const res = await fetch(`${API}/api/settings/sections/${encodeURIComponent(sectionYear)}/${encodeURIComponent(section)}`, {
         method: 'DELETE', headers: authHeaders(),
       });
       const data = await res.json();
-      if (data.success) setSectionsConfig(data.data || null);
+      if (data.success) {
+        setSectionsConfig(data.data || null);
+        setSharedSectionsConfig(data.data || null);
+      }
     }
   };
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -948,6 +995,7 @@ const Dashboard = ({ user, onLogout }) => {
 
       {activeNav === 'faculty'        ? <FacultyPage /> :
        activeNav === 'courses'        ? <CoursesPage isAdmin={isAdmin} /> :
+       activeNav === 'sections'       ? <SectionManagementPage /> :
        activeNav === 'workload'       ? <WorkloadPage submissions={submissions} /> :
        activeNav === 'allocation'     ? <AllocationPage isAdmin={isAdmin} /> :
         activeNav === 'extrafaculty'   ? <ExtraFacultyPage /> :
@@ -976,7 +1024,7 @@ const Dashboard = ({ user, onLogout }) => {
          />
        ) :
        activeNav === 'profile'        ? (
-         <ProfilePage user={user} submissions={submissions} />
+         <ProfilePage user={user} submissions={submissions} onLogout={onLogout} />
        ) :
        activeNav === 'auditlogs'     ? <AuditLogPage /> :
        /* â”€â”€ Dashboard overview â”€â”€ */
@@ -984,6 +1032,52 @@ const Dashboard = ({ user, onLogout }) => {
         <h1 className="dash-heading">
           {isAdmin ? 'Admin Overview' : `Welcome, ${user.name || 'Faculty'}`}
         </h1>
+
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '16px',
+          padding: `${remainingSeconds < 300 ? '14px' : '12px'} 16px`,
+          background: remainingSeconds < 300 
+            ? 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)' 
+            : 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+          border: `2px solid ${remainingSeconds < 300 ? '#f59e0b' : '#93c5fd'}`,
+          borderRadius: '8px',
+          fontSize: '13px',
+          fontWeight: '600',
+          color: remainingSeconds < 300 ? '#92400e' : '#1e40af',
+          boxShadow: remainingSeconds < 300 
+            ? '0 4px 12px rgba(245, 158, 11, 0.2)' 
+            : '0 2px 8px rgba(59, 130, 246, 0.1)',
+          transition: 'all 0.3s ease',
+        }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: remainingSeconds < 300 ? '16px' : '14px' }}>
+              {remainingSeconds < 300 
+                ? '⏱️ Session ending soon' 
+                : '✅ Active session'}
+            </span>
+          </span>
+          <span style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '6px',
+            padding: '6px 12px',
+            background: remainingSeconds < 300 ? 'rgba(255, 255, 255, 0.6)' : 'rgba(255, 255, 255, 0.4)',
+            borderRadius: '6px',
+            fontSize: remainingSeconds < 300 ? '14px' : '13px',
+          }}>
+            Time remaining: 
+            <strong style={{ 
+              fontFamily: 'monospace', 
+              fontSize: remainingSeconds < 300 ? '15px' : '14px',
+              letterSpacing: '1px',
+            }}>
+              {formatSessionTime(remainingSeconds)}
+            </strong>
+          </span>
+        </div>
 
           <div className="dash-sync-row">
             <span className="dash-sync-pill">Dashboard sync: {formatSyncedAt(dashboardLastSyncedAt)}</span>

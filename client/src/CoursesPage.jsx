@@ -3,6 +3,7 @@ import API from './config';
 import { fetchAllPages, authJsonHeaders } from './utils/apiFetchAll';
 import { exportCoursesList, exportCoursesListExcel } from './utils/frontendExportUtils';
 import { useToast } from './Toast';
+import { useSharedData } from './DataContext';
 import './CoursesPage.css';
 
 const PROGRAMS     = ['B.Tech', 'M.Tech'];
@@ -27,9 +28,19 @@ const emptyCourseForm = {
 
 // ── CoursesPage ────────────────────────────────────────────────
 const CoursesPage = ({ isAdmin = true }) => {
+  const { courses: contextCourses } = useSharedData();
+  
   // ── Data state ──
   const [courseList, setCourseList]   = useState([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
+
+  // Sync shared context data to local state
+  useEffect(() => {
+    if (contextCourses && contextCourses.length > 0) {
+      setCourseList(contextCourses);
+      setLoadingCourses(false);
+    }
+  }, [contextCourses]);
 
   // ── Filters ──
   const [activeProgram, setActiveProgram] = useState('B.Tech');
@@ -48,21 +59,6 @@ const CoursesPage = ({ isAdmin = true }) => {
   const authHeaders = () => ({
     ...authJsonHeaders(),
   });
-
-  const fetchCourses = useCallback(async () => {
-    setLoadingCourses(true);
-    try {
-      const data = await fetchAllPages('/api/courses', {}, { headers: authHeaders() });
-      if (data.success) setCourseList(data.data || []);
-      else showToast('Could not load courses.');
-    } catch {
-      showToast('Network error while loading courses.');
-    } finally {
-      setLoadingCourses(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchCourses(); }, [fetchCourses]);
 
   // ── Derived lists ──
   const filteredCourses = useMemo(() => {

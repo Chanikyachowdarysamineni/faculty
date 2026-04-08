@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import API from './config';
 import { fetchAllPages, authJsonHeaders } from './utils/apiFetchAll';
+import { useSharedData } from './DataContext';
 import './FacultyFormPage.css';
 
 const FacultyFormPage = ({
@@ -9,6 +10,8 @@ const FacultyFormPage = ({
   submissions, onSubmit, onUpdateSubmission, onDeleteSubmission,
   isAdmin, currentUser,
 }) => {
+  const { faculty: contextFaculty, courses: contextCourses } = useSharedData();
+  
   // Auto-fill empId for logged-in faculty
   const initialEmpId = !isAdmin && currentUser?.id ? currentUser.id : '';
   const [empIdInput, setEmpIdInput]   = useState(initialEmpId);
@@ -33,6 +36,16 @@ const FacultyFormPage = ({
   const [exportLoading, setExportLoading] = useState(false);
   const [exportError, setExportError] = useState('');
 
+  // Sync shared context data to local state
+  useEffect(() => {
+    if (contextFaculty && contextFaculty.length > 0) {
+      setFacultyList(contextFaculty);
+    }
+    if (contextCourses && contextCourses.length > 0) {
+      setCourseList(contextCourses);
+    }
+    setLastSyncedAt(new Date());
+  }, [contextFaculty, contextCourses]);
 
   const authHeaders = () => ({
     ...authJsonHeaders(),
@@ -42,51 +55,6 @@ const FacultyFormPage = ({
     if (!date) return 'Not synced yet';
     return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }, []);
-
-  const loadMasterData = useCallback(async ({ silent = false } = {}) => {
-    if (!silent) setMasterLoading(true);
-    setReadApiError('');
-    try {
-      const [fData, cData] = await Promise.all([
-        fetchAllPages('/api/faculty', {}, { headers: authHeaders() }),
-        fetchAllPages('/api/courses', {}, { headers: authHeaders() }),
-      ]);
-      if (!fData.success || !cData.success) {
-        setReadApiError(fData.message || cData.message || 'Failed to load faculty/course data.');
-        return;
-      }
-      setFacultyList(fData.data || []);
-      setCourseList(cData.data || []);
-      setLastSyncedAt(new Date());
-    } catch {
-      setReadApiError('Failed to load faculty/course data.');
-    } finally {
-      if (!silent) setMasterLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadMasterData({ silent: false });
-  }, [loadMasterData]);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      loadMasterData({ silent: true });
-    }, 15000);
-    return () => clearInterval(id);
-  }, [loadMasterData]);
-
-  useEffect(() => {
-    const onVisibility = () => {
-      if (!document.hidden) loadMasterData({ silent: true });
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('focus', onVisibility);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('focus', onVisibility);
-    };
-  }, [loadMasterData]);
 
   const foundFaculty = useMemo(
     () => facultyList.find(f => f.empId === empIdInput.trim()),

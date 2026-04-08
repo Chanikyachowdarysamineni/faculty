@@ -1,11 +1,14 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import API from './config';
 import { fetchAllPages, authJsonHeaders } from './utils/apiFetchAll';
+import { useSharedData } from './DataContext';
 import './FacultyPage.css';
 
 const EMPTY_FORM = { slNo: '', empId: '', name: '', designation: '', mobile: '', email: '' };
 
 const FacultyPage = () => {
+  const { faculty: contextFaculty, setFaculty } = useSharedData();
+  
   const [list, setList]           = useState([]);
   const [loading, setLoading]     = useState(true);
   const [search, setSearch]       = useState('');
@@ -18,24 +21,17 @@ const FacultyPage = () => {
   const [dragOverIdx, setDragOverIdx] = useState(null);
   const dragSrcIdx = useRef(null);
 
+  // Sync shared context data to local state
+  useEffect(() => {
+    if (contextFaculty && contextFaculty.length > 0) {
+      setList(contextFaculty);
+      setLoading(false);
+    }
+  }, [contextFaculty]);
+
   const authHeaders = () => ({
     ...authJsonHeaders(),
   });
-
-  const fetchFaculty = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await fetchAllPages('/api/faculty', {}, { headers: authHeaders() });
-      if (data.success) setList(data.data || []);
-      else showToast('Could not load faculty list.');
-    } catch {
-      showToast('Network error while loading faculty list.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchFaculty(); }, [fetchFaculty]);
 
   // ── Drag-and-drop reorder ──────────────────────────────
   const handleDragStart = (e, idx) => {
@@ -58,6 +54,7 @@ const FacultyPage = () => {
     updated.splice(idx, 0, moved);
     const reordered = updated.map((f, i) => ({ ...f, slNo: i + 1 }));
     setList(reordered);
+    setFaculty(reordered);
     setDragOverIdx(null);
     dragSrcIdx.current = null;
 
@@ -74,7 +71,6 @@ const FacultyPage = () => {
       showToast('Order saved successfully.');
     } catch {
       showToast('Order updated locally but could not save to server.');
-      fetchFaculty();
     }
   };
 
@@ -148,7 +144,16 @@ const FacultyPage = () => {
         showToast(data.message || 'Could not save faculty record.');
         return;
       }
-      await fetchFaculty();
+      // Update local list and shared context
+      let updatedList;
+      if (editTarget) {
+        updatedList = list.map(f => f.empId === editTarget.empId ? { ...form } : f);
+      } else {
+        const newFaculty = { ...form, slNo: list.length + 1, ...data.data };
+        updatedList = [...list, newFaculty];
+      }
+      setList(updatedList);
+      setFaculty(updatedList);
       showToast(editTarget ? 'Faculty updated successfully.' : 'Faculty added successfully.');
       setShowModal(false);
     } catch {
@@ -168,7 +173,10 @@ const FacultyPage = () => {
         showToast(data.message || 'Could not delete faculty record.');
         return;
       }
-      await fetchFaculty();
+      // Update local list and shared context
+      const updatedList = list.filter(f => f.empId !== deleteConfirm.empId).map((f, i) => ({ ...f, slNo: i + 1 }));
+      setList(updatedList);
+      setFaculty(updatedList);
       setDeleteConfirm(null);
       showToast('Faculty record deleted.');
     } catch {

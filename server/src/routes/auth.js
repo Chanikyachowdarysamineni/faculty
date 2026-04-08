@@ -19,7 +19,7 @@ const { body, validationResult } = require('express-validator');
 const User     = require('../models/User');
 const PasswordResetToken = require('../models/PasswordResetToken');
 const { signToken } = require('../utils/jwt');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, validateActiveSession } = require('../middleware/auth');
 const { logAuditEvent, getIp } = require('../utils/audit');
 const { sendSuccess, sendError, sendUnauthorized, sendValidationError } = require('../utils/response');
 const logger = require('../utils/logger');
@@ -147,8 +147,22 @@ router.post(
         canAccessAdmin: user.canAccessAdmin,
       };
       const token = signToken(payload);
-      logger.info('User logged in successfully', { empId: user.empId, role: user.role });
-      await logAuditEvent({ req, action: 'auth.login.success', entity: 'user', entityId: user.empId });
+
+      // Store the active session token (invalidates any previous session)
+      await User.updateOne(
+        { _id: user._id },
+        {
+          $set: {
+            activeSessionToken: token,
+            sessionIssuedAt: new Date(),
+            lastLoginIp: getIp(req),
+            lastLoginAt: new Date(),
+          },
+        }
+      );
+
+      logger.info('User logged in successfully', { empId: user.empId, role: user.role, ip: getIp(req) });
+      await logAuditEvent({ req, action: 'auth.login.success', entity: 'user', entityId: user.empId, metadata: { ip: getIp(req) } });
       return sendSuccess(res, { token, user: payload }, 200, { message: 'Login successful' });
     } catch (err) {
       logger.error('Login error', { error: err.message });
@@ -259,6 +273,7 @@ router.post(
 router.put(
   '/change-password',
   requireAuth,
+  validateActiveSession,
   validateChangePassword,
   async (req, res, next) => {
     try {
@@ -290,7 +305,7 @@ router.put(
 // ─────────────────────────────────────────────────────────
 //  GET /api/auth/me
 // ─────────────────────────────────────────────────────────
-router.get('/me', requireAuth, async (req, res, next) => {
+router.get('/me', requireAuth, validateActiveSession, async (req, res, next) => {
   try {
     const { id, role, name, canAccessAdmin } = req.user;
     let extra = {};
@@ -300,6 +315,35 @@ router.get('/me', requireAuth, async (req, res, next) => {
     sendSuccess(res, { user: { id, role, name, canAccessAdmin, ...extra } });
   } catch (err) {
     logger.error('Auth me endpoint error', { error: err.message });
+    next(err);
+  }
+});
+
+// ─────────────────────────────────────────────────────────
+//  POST /api/auth/logout  (requires auth)
+// ─────────────────────────────────────────────────────────
+router.post('/logout', requireAuth, validateActiveSession, async (req, res, next) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return sendError(res, 'User not authenticated.', 401);
+    }
+
+    // Clear the active session token
+    await User.updateOne(
+      { empId: req.user.id },
+      {
+        $set: {
+          activeSessionToken: null,
+          sessionIssuedAt: null,
+        },
+      }
+    );
+
+    logger.info('User logged out successfully', { empId: req.user.id });
+    await logAuditEvent({ req, action: 'auth.logout', entity: 'user', entityId: req.user.id });
+    return sendSuccess(res, null, 200, { message: 'Logged out successfully.' });
+  } catch (err) {
+    logger.error('Logout error', { error: err.message });
     next(err);
   }
 });

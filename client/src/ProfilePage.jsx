@@ -2,14 +2,27 @@ import React, { useState, useEffect, useCallback } from 'react';
 import './ProfilePage.css';
 import API from './config';
 import { fetchAllPages, authJsonHeaders } from './utils/apiFetchAll';
+import { useSharedData } from './DataContext';
 
-const ProfilePage = ({ user, submissions = [] }) => {
+const ProfilePage = ({ user, submissions = [], onLogout }) => {
+  const { faculty: contextFaculty, courses: contextCourses } = useSharedData();
+  
   const [myWorkloads, setMyWorkloads] = useState([]);
   const [facultyList, setFacultyList] = useState([]);
   const [courseList, setCourseList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState('');
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
+
+  // Sync shared context data to local state
+  useEffect(() => {
+    if (contextFaculty && contextFaculty.length > 0) {
+      setFacultyList(contextFaculty);
+    }
+    if (contextCourses && contextCourses.length > 0) {
+      setCourseList(contextCourses);
+    }
+  }, [contextFaculty, contextCourses]);
 
   // Change password state
   const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -37,14 +50,12 @@ const ProfilePage = ({ user, submissions = [] }) => {
     try {
       const headers = authHeaders();
       const workloadParams = user.role === 'admin' ? {} : { empId: String(user.id) };
-      const [wData, fData, cData] = await Promise.all([
+      const [wData] = await Promise.all([
         fetchAllPages('/api/workloads', workloadParams, { headers }),
-        fetchAllPages('/api/faculty', {}, { headers }),
-        fetchAllPages('/api/courses', {}, { headers }),
       ]);
 
-      if (!wData.success || !fData.success || !cData.success) {
-        setApiError(wData.message || fData.message || cData.message || 'Failed to load profile data.');
+      if (!wData.success) {
+        setApiError(wData.message || 'Failed to load profile data.');
         return;
       }
 
@@ -52,8 +63,6 @@ const ProfilePage = ({ user, submissions = [] }) => {
       setMyWorkloads(user.role === 'admin'
         ? allWorkloads
         : allWorkloads.filter((workload) => String(workload.empId) === String(user.id)));
-      setFacultyList(fData.data || []);
-      setCourseList(cData.data || []);
       setLastSyncedAt(new Date());
     } catch {
       setApiError('Failed to load profile data.');
@@ -255,6 +264,11 @@ const ProfilePage = ({ user, submissions = [] }) => {
             >
               ✎ Edit Profile
             </button>
+            {profile.empId && user.id && profile.empId !== user.id && (
+              <span style={{ fontSize: '12px', color: '#999', marginLeft: '8px' }}>
+                (View only - can only edit your own profile)
+              </span>
+            )}
           </div>
           <div className="pp-detail-grid">
             <div className="pp-detail-cell">
@@ -282,10 +296,6 @@ const ProfilePage = ({ user, submissions = [] }) => {
                   ? <a href={`mailto:${profile.email}`} className="pp-email-link">{profile.email}</a>
                   : <span className="pp-na">—</span>}
               </span>
-            </div>
-            <div className="pp-detail-cell">
-              <span className="pp-dc-label">Sl. No.</span>
-              <span className="pp-dc-val pp-mono">{profile.slNo}</span>
             </div>
           </div>
         </section>
@@ -415,6 +425,25 @@ const ProfilePage = ({ user, submissions = [] }) => {
             </svg>
             Change Password
           </h2>
+          
+          {pwMsg.text && (
+            <div style={{
+              marginBottom: '16px',
+              padding: '12px 14px',
+              borderRadius: '6px',
+              background: pwMsg.ok ? '#dcfce7' : '#fee2e2',
+              color: pwMsg.ok ? '#166534' : '#991b1b',
+              fontSize: '14px',
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span>{pwMsg.ok ? '✓' : '⚠'}</span>
+              {pwMsg.text}
+            </div>
+          )}
+
           <div className="pp-detail-grid" style={{ maxWidth: 480 }}>
             <div className="pp-fg cp-fg-full">
               <label className="pp-dc-label">Current Password</label>
@@ -424,6 +453,8 @@ const ProfilePage = ({ user, submissions = [] }) => {
                 value={pwForm.currentPassword}
                 onChange={e => setPwForm(p => ({ ...p, currentPassword: e.target.value }))}
                 autoComplete="current-password"
+                placeholder="Enter your current password"
+                disabled={pwSaving}
               />
             </div>
             <div className="pp-fg cp-fg-full">
@@ -434,7 +465,12 @@ const ProfilePage = ({ user, submissions = [] }) => {
                 value={pwForm.newPassword}
                 onChange={e => setPwForm(p => ({ ...p, newPassword: e.target.value }))}
                 autoComplete="new-password"
+                placeholder="Enter a new password (min 8 characters)"
+                disabled={pwSaving}
               />
+              <span style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                Must be at least 8 characters
+              </span>
             </div>
             <div className="pp-fg cp-fg-full">
               <label className="pp-dc-label">Confirm New Password</label>
@@ -444,49 +480,134 @@ const ProfilePage = ({ user, submissions = [] }) => {
                 value={pwForm.confirmPassword}
                 onChange={e => setPwForm(p => ({ ...p, confirmPassword: e.target.value }))}
                 autoComplete="new-password"
+                placeholder="Re-enter your new password"
+                disabled={pwSaving}
               />
+              {pwForm.newPassword && pwForm.confirmPassword && pwForm.newPassword !== pwForm.confirmPassword && (
+                <span style={{ fontSize: '12px', color: '#dc2626', marginTop: '4px' }}>
+                  Passwords do not match
+                </span>
+              )}
+              {pwForm.newPassword && pwForm.confirmPassword && pwForm.newPassword === pwForm.confirmPassword && (
+                <span style={{ fontSize: '12px', color: '#16a34a', marginTop: '4px' }}>
+                  ✓ Passwords match
+                </span>
+              )}
             </div>
           </div>
-          {pwMsg.text && (
-            <p style={{ marginTop: 8, color: pwMsg.ok ? '#16a34a' : '#dc2626', fontWeight: 600 }}>{pwMsg.text}</p>
-          )}
+          
           <button
             className="cp-btn cp-btn-save"
-            style={{ marginTop: 12 }}
-            disabled={pwSaving}
+            style={{ marginTop: 16 }}
+            disabled={pwSaving || !pwForm.currentPassword || !pwForm.newPassword || !pwForm.confirmPassword || pwForm.newPassword !== pwForm.confirmPassword || pwForm.newPassword.length < 8}
             onClick={async () => {
               setPwMsg({ text: '', ok: false });
+              
               if (!pwForm.currentPassword || !pwForm.newPassword) {
-                setPwMsg({ text: 'Please fill in all password fields.', ok: false }); return;
+                setPwMsg({ text: 'Please fill in all password fields.', ok: false });
+                return;
               }
               if (pwForm.newPassword !== pwForm.confirmPassword) {
-                setPwMsg({ text: 'New passwords do not match.', ok: false }); return;
+                setPwMsg({ text: 'New passwords do not match.', ok: false });
+                return;
               }
               if (pwForm.newPassword.length < 8) {
-                setPwMsg({ text: 'New password must be at least 8 characters.', ok: false }); return;
+                setPwMsg({ text: 'New password must be at least 8 characters.', ok: false });
+                return;
               }
+              if (pwForm.newPassword === pwForm.currentPassword) {
+                setPwMsg({ text: 'New password must be different from current password.', ok: false });
+                return;
+              }
+
               setPwSaving(true);
               try {
+                console.log('Sending password change request...');
                 const res = await fetch(`${API}/api/auth/change-password`, {
                   method: 'PUT',
                   headers: { 'Content-Type': 'application/json', ...authHeaders() },
-                  body: JSON.stringify({ currentPassword: pwForm.currentPassword, newPassword: pwForm.newPassword }),
+                  body: JSON.stringify({ 
+                    currentPassword: pwForm.currentPassword, 
+                    newPassword: pwForm.newPassword 
+                  }),
                 });
+
                 const data = await res.json();
+                console.log('Password change response:', { status: res.status, data });
+
                 if (!res.ok || !data.success) {
-                  setPwMsg({ text: data.message || 'Failed to change password.', ok: false });
+                  setPwMsg({ text: data.message || 'Failed to change password. Please check your current password and try again.', ok: false });
                 } else {
                   setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-                  setPwMsg({ text: 'Password changed successfully.', ok: true });
+                  setPwMsg({ text: 'Password changed successfully! You can now log in with your new password.', ok: true });
+                  
+                  // Clear message after 3 seconds
+                  setTimeout(() => {
+                    setPwMsg({ text: '', ok: false });
+                  }, 3000);
                 }
-              } catch {
-                setPwMsg({ text: 'Network error. Please try again.', ok: false });
+              } catch (err) {
+                console.error('Password change error:', err);
+                setPwMsg({ text: 'Network error: ' + (err.message || 'Please try again.'), ok: false });
               } finally {
                 setPwSaving(false);
               }
             }}
           >
-            {pwSaving ? 'Saving…' : 'Change Password'}
+            {pwSaving ? 'Changing Password…' : 'Change Password'}
+          </button>
+        </section>
+
+        {/* ── Logout ──────────────────────────────────── */}
+        <section className="pp-section">
+          <h2 className="pp-sec-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            Session Management
+          </h2>
+          <p style={{ marginBottom: '16px', fontSize: '14px', color: '#666' }}>
+            Logging out will end your current session. You'll need to log in again to access your account.
+            Remember: Only one active login session is allowed per user account.
+          </p>
+          <button
+            className="cp-btn"
+            style={{ 
+              marginTop: 12,
+              background: '#dc2626',
+              color: '#fff',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 500,
+              transition: 'background 0.2s'
+            }}
+            onMouseOver={(e) => e.target.style.background = '#b91c1c'}
+            onMouseOut={(e) => e.target.style.background = '#dc2626'}
+            onClick={async () => {
+              try {
+                console.log('Logging out...');
+                // Call logout endpoint to clear session
+                await fetch(`${API}/api/auth/logout`, {
+                  method: 'POST',
+                  headers: authHeaders(),
+                });
+              } catch (err) {
+                console.error('Logout error:', err);
+              } finally {
+                // Clear local storage and redirect to login
+                if (onLogout) {
+                  onLogout();
+                }
+              }
+            }}
+          >
+            Logout
           </button>
         </section>
 

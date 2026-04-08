@@ -3,6 +3,7 @@ import './WorkloadPage.css';
 import API from './config';
 import { exportAsCSV, exportAsExcel, exportAsPDF } from './utils/exportUtils';
 import { fetchAllPages, authJsonHeaders } from './utils/apiFetchAll';
+import { useSharedData } from './DataContext';
 import {
   DEFAULT_SECTIONS,
   fetchSectionsConfig,
@@ -69,6 +70,8 @@ const authHeader = () => authJsonHeaders();
 
 // ─────────────────────────────────────────────────
 const WorkloadPage = ({ submissions }) => {
+  const { faculty: contextFaculty, courses: contextCourses } = useSharedData();
+  
   const [workloads,    setWorkloads]    = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [fetchError,   setFetchError]   = useState('');
@@ -90,24 +93,24 @@ const WorkloadPage = ({ submissions }) => {
   const [facultyList, setFacultyList] = useState([]);
   const [courseList, setCourseList] = useState([]);
 
+  // Sync shared context data to local state
+  useEffect(() => {
+    if (contextFaculty && contextFaculty.length > 0) {
+      setFacultyList(contextFaculty);
+    }
+    if (contextCourses && contextCourses.length > 0) {
+      setCourseList(contextCourses);
+    }
+  }, [contextFaculty, contextCourses]);
+
   // Faculty workload hours tracking
   const [facultyWorkloadSummary, setFacultyWorkloadSummary] = useState(null);
   const [workloadHoursLoading, setWorkloadHoursLoading] = useState(false);
   const [workloadHoursError, setWorkloadHoursError] = useState('');
 
-  const fetchMasterData = useCallback(async () => {
-    try {
-      const [fRes, cRes] = await Promise.all([
-        fetchAllPages('/api/faculty', {}, { headers: authHeader() }),
-        fetchAllPages('/api/courses', {}, { headers: authHeader() }),
-      ]);
-      if (fRes.success) setFacultyList(fRes.data || []);
-      if (cRes.success) setCourseList(cRes.data || []);
-    } catch {
-    }
-  }, []);
 
-  useEffect(() => { fetchMasterData(); }, [fetchMasterData]);
+  const showToast = msg => { setToast(msg); setTimeout(() => setToast(''), 2800); };
+
   // ── Fetch allocation for selected course/year/section ──
   useEffect(() => {
     // Only fetch if form is open and courseId/year/section are set and not '__other__'
@@ -137,8 +140,6 @@ const WorkloadPage = ({ submissions }) => {
     };
     fetchAllocation();
   }, [showForm, form.courseId, form.year, form.section]);
-
-  const showToast = msg => { setToast(msg); setTimeout(() => setToast(''), 2800); };
 
   const loadSectionsConfig = useCallback(async () => {
     try {
