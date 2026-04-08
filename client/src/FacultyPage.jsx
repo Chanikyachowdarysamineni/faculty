@@ -107,7 +107,7 @@ const FacultyPage = () => {
   // ── Open Add modal ─────────────────────────────────────
   const openAdd = () => {
     setEditTarget(null);
-    setForm({ ...EMPTY_FORM, slNo: list.length + 1 });
+    setForm({ ...EMPTY_FORM });
     setShowModal(true);
   };
 
@@ -140,17 +140,21 @@ const FacultyPage = () => {
         }
       );
       const data = await res.json();
-      if (!res.ok || !data.success) {
-        showToast(data.message || 'Could not save faculty record.');
+      if (!res.ok || !data?.success) {
+        showToast(data?.message || 'Could not save faculty record.');
+        return;
+      }
+      const serverFaculty = data?.data;
+      if (!serverFaculty) {
+        showToast('Server returned invalid faculty data.');
         return;
       }
       // Update local list and shared context
       let updatedList;
       if (editTarget) {
-        updatedList = list.map(f => f.empId === editTarget.empId ? { ...form } : f);
+        updatedList = list.map(f => f.empId === editTarget.empId ? serverFaculty : f);
       } else {
-        const newFaculty = { ...form, slNo: list.length + 1, ...data.data };
-        updatedList = [...list, newFaculty];
+        updatedList = [...list, serverFaculty];
       }
       setList(updatedList);
       setFaculty(updatedList);
@@ -169,8 +173,8 @@ const FacultyPage = () => {
         headers: authHeaders(),
       });
       const data = await res.json();
-      if (!res.ok || !data.success) {
-        showToast(data.message || 'Could not delete faculty record.');
+      if (!res.ok || !data?.success) {
+        showToast(data?.message || 'Could not delete faculty record.');
         return;
       }
       // Update local list and shared context

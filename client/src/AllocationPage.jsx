@@ -645,8 +645,8 @@ const AllocationPage = ({ isAdmin = true }) => {
         }),
       });
       const data = await res.json();
-      if (!data.success) {
-        return { success: false, message: data.message || 'Could not persist allocation.' };
+      if (!res.ok || !data?.success) {
+        return { success: false, message: data?.message || 'Could not persist allocation.' };
       }
       return { success: true };
     } catch {
@@ -818,7 +818,9 @@ const AllocationPage = ({ isAdmin = true }) => {
           }),
         });
         const data = await res.json();
-        if (!data.success) errors.push(data.message || 'Unknown error');
+        if (!res.ok || !data?.success) {
+          errors.push(data?.message || 'Unknown error');
+        }
       } catch (e) {
         errors.push(e.message);
       }

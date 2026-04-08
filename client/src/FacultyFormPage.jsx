@@ -114,8 +114,18 @@ const FacultyFormPage = ({
           body: JSON.stringify({ prefs: prefs.filter(Boolean).map(Number) }),
         });
         const data = await res.json();
-        if (!res.ok) { setApiError(data.message || 'Update failed.'); setSaving(false); return; }
-        onUpdateSubmission(data.data);
+        if (!res.ok || !data?.success) { 
+          setApiError(data?.message || 'Update failed.'); 
+          setSaving(false); 
+          return; 
+        }
+        const updatedSubmission = data?.data;
+        if (!updatedSubmission) {
+          setApiError('Server returned invalid submission data.');
+          setSaving(false);
+          return;
+        }
+        onUpdateSubmission(updatedSubmission);
         setEditMode(false);
         setEditTargetId(null);
         setSubmittedLabel('updated');
@@ -148,8 +158,18 @@ const FacultyFormPage = ({
         }),
       });
       const data = await res.json();
-      if (!res.ok) { setApiError(data.message || 'Submission failed.'); setSaving(false); return; }
-      onSubmit(data.data);
+      if (!res.ok || !data?.success) { 
+        setApiError(data?.message || 'Submission failed.'); 
+        setSaving(false); 
+        return; 
+      }
+      const newSubmission = data?.data;
+      if (!newSubmission) {
+        setApiError('Server returned invalid submission data.');
+        setSaving(false);
+        return;
+      }
+      onSubmit(newSubmission);
       setSubmittedLabel('submitted');
       setSubmitted(true);
       setEmpIdInput(initialEmpId);

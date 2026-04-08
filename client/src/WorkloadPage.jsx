@@ -561,8 +561,8 @@ const WorkloadPage = ({ submissions }) => {
       }
 
       const data = await res.json();
-      if (!data.success) {
-        showToast(`⚠ ${data.message || 'Save failed.'}`);
+      if (!res.ok || !data?.success) {
+        showToast(`⚠ ${data?.message || 'Save failed.'}`);
         setSaving(false);
         return;
       }

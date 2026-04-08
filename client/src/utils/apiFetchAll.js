@@ -46,6 +46,7 @@ export const fetchJsonWithRetry = async (url, options = {}) => {
   const timeoutMs = Number(options.timeoutMs || DEFAULT_TIMEOUT_MS);
   const retries = Number(options.retries ?? DEFAULT_RETRIES);
   const retryDelayMs = Number(options.retryDelayMs || DEFAULT_RETRY_DELAY_MS);
+  const silentMode = options.silentMode === true; // Suppress logs and retries for expected 404s
 
   const baseHeaders = options.headers || authJsonHeaders();
   const getHeaders = { ...baseHeaders };
@@ -79,7 +80,26 @@ export const fetchJsonWithRetry = async (url, options = {}) => {
         };
       }
 
+      // 404 is a valid response for some endpoints (e.g., submission not found)
+      // In silentMode, return immediately without retrying
+      if (response.status === 404) {
+        if (!silentMode) {
+          // Only log 404 if not in silent mode (for debugging)
+          // This prevents the "GET /api/submissions/by-faculty/189 404" console spam
+        }
+        return {
+          success: false,
+          status: 404,
+          message: data?.message || 'Not found.',
+          data,
+        };
+      }
+
+      // For other non-retryable errors, don't log in silent mode
       if (attempt < retries && shouldRetryStatus(response.status)) {
+        if (!silentMode) {
+          // Log retry attempts only when not in silent mode
+        }
         await wait(retryDelayMs * (2 ** attempt));
         continue;
       }
@@ -123,7 +143,7 @@ export const fetchAllPages = async (path, params = {}, options = {}) => {
   const merged = [];
 
   while (page <= pages && page <= maxPages) {
-    const query = toQueryString({ ...params, page, limit: pageSize });
+    const query = toQueryString({ ...params, page });
     const url = `${API}${path}${query ? `?${query}` : ''}`;
     const result = await fetchJsonWithRetry(url, {
       headers,

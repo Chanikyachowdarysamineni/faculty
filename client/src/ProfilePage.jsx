@@ -31,7 +31,7 @@ const ProfilePage = ({ user, submissions = [], onLogout }) => {
 
   // Edit profile state
   const [editMode, setEditMode] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '', designation: '', mobile: '', email: '' });
+  const [editForm, setEditForm] = useState({ mobile: '', email: '' });
   const [editSaving, setEditSaving] = useState(false);
   const [editMsg, setEditMsg] = useState({ text: '', ok: false });
 
@@ -96,12 +96,10 @@ const ProfilePage = ({ user, submissions = [], onLogout }) => {
 
   const getCourseById = (id) => courseList.find(c => c.id === id);
 
-  // Open edit mode with current values
+  // Open edit mode with current values (only editable fields)
   const openEditMode = useCallback(() => {
     if (profile) {
       setEditForm({
-        name: profile.name || '',
-        designation: profile.designation || '',
         mobile: profile.mobile || '',
         email: profile.email || '',
       });
@@ -113,7 +111,7 @@ const ProfilePage = ({ user, submissions = [], onLogout }) => {
   // Close edit mode
   const closeEditMode = () => {
     setEditMode(false);
-    setEditForm({ name: '', designation: '', mobile: '', email: '' });
+    setEditForm({ mobile: '', email: '' });
     setEditMsg({ text: '', ok: false });
   };
 
@@ -146,11 +144,11 @@ const ProfilePage = ({ user, submissions = [], onLogout }) => {
 
       console.log('Profile update response:', { status: response.status, data });
 
-      if (!response.ok) {
-        let errorMsg = data.message || 'Failed to update profile';
+      if (!response.ok || !data?.success) {
+        let errorMsg = data?.message || 'Failed to update profile';
         
         // Extract detailed error messages if validation errors exist
-        if (data.errors && Array.isArray(data.errors)) {
+        if (data?.errors && Array.isArray(data.errors)) {
           const errorDetails = data.errors.map(e => `${e.field}: ${e.message}`).join('; ');
           errorMsg = `Validation error: ${errorDetails}`;
         }
@@ -623,6 +621,19 @@ const ProfilePage = ({ user, submissions = [], onLogout }) => {
             </div>
 
             <div className="pp-modal-body">
+              <div style={{
+                marginBottom: '16px',
+                padding: '12px 14px',
+                borderRadius: '6px',
+                background: '#eff6ff',
+                color: '#1e40af',
+                fontSize: '13px',
+                borderLeft: '4px solid #3b82f6',
+              }}>
+                ℹ️ <strong>Editable fields:</strong> Email and Mobile Number only<br/>
+                Name and Designation are fixed in the system and cannot be changed.
+              </div>
+
               {editMsg.text && (
                 <div style={{
                   marginBottom: '12px',
@@ -638,42 +649,34 @@ const ProfilePage = ({ user, submissions = [], onLogout }) => {
               )}
 
               <div className="pp-edit-form">
-                <div className="pp-form-group">
-                  <label className="pp-dc-label">Full Name *</label>
-                  <input
-                    type="text"
-                    className="pp-input"
-                    value={editForm.name}
-                    onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
-                    placeholder="Enter your full name"
-                  />
+                <div className="pp-form-group" style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '12px', marginBottom: '12px' }}>
+                  <label className="pp-dc-label" style={{ color: '#666', fontSize: '13px' }}>Full Name (Read-only)</label>
+                  <div className="pp-input" style={{ background: '#f3f4f6', color: '#6b7280', cursor: 'not-allowed' }}>
+                    {profile.name}
+                  </div>
+                </div>
+
+                <div className="pp-form-group" style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '12px', marginBottom: '12px' }}>
+                  <label className="pp-dc-label" style={{ color: '#666', fontSize: '13px' }}>Designation (Read-only)</label>
+                  <div className="pp-input" style={{ background: '#f3f4f6', color: '#6b7280', cursor: 'not-allowed' }}>
+                    {profile.designation}
+                  </div>
                 </div>
 
                 <div className="pp-form-group">
-                  <label className="pp-dc-label">Designation *</label>
-                  <input
-                    type="text"
-                    className="pp-input"
-                    value={editForm.designation}
-                    onChange={e => setEditForm(f => ({ ...f, designation: e.target.value }))}
-                    placeholder="Enter your designation"
-                  />
-                </div>
-
-                <div className="pp-form-group">
-                  <label className="pp-dc-label">Mobile</label>
+                  <label className="pp-dc-label">Mobile Number</label>
                   <input
                     type="tel"
                     className="pp-input"
                     value={editForm.mobile}
                     onChange={e => setEditForm(f => ({ ...f, mobile: e.target.value }))}
-                    placeholder="10-digit mobile number"
-                    maxLength="10"
+                    placeholder="Enter your mobile number"
+                    maxLength="15"
                   />
                 </div>
 
                 <div className="pp-form-group">
-                  <label className="pp-dc-label">Email *</label>
+                  <label className="pp-dc-label">Email Address</label>
                   <input
                     type="email"
                     className="pp-input"
@@ -696,7 +699,7 @@ const ProfilePage = ({ user, submissions = [], onLogout }) => {
               <button
                 className="pp-btn-save"
                 onClick={saveProfileChanges}
-                disabled={editSaving || !editForm.name || !editForm.designation || !editForm.email}
+                disabled={editSaving}
               >
                 {editSaving ? 'Saving…' : 'Save Changes'}
               </button>

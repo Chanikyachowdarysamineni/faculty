@@ -17,7 +17,7 @@ const AuditLogPage = () => {
     setLoading(true);
     setError('');
     try {
-      const params = new URLSearchParams({ page, limit: PAGE_SIZE });
+      const params = new URLSearchParams({ page });
       if (filters.action)     params.set('action',     filters.action);
       if (filters.entity)     params.set('entity',     filters.entity);
       if (filters.actorEmpId) params.set('actorEmpId', filters.actorEmpId);

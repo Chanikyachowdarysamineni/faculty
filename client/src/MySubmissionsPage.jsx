@@ -77,8 +77,18 @@ const MySubmissionsPage = ({
         body: JSON.stringify({ prefs: filled.map(Number) }),
       });
       const data = await res.json();
-      if (!res.ok) { setApiError(data.message || 'Update failed.'); setSaving(false); return; }
-      onUpdateSubmission(data.data);
+      if (!res.ok || !data?.success) { 
+        setApiError(data?.message || 'Update failed.'); 
+        setSaving(false); 
+        return; 
+      }
+      const updatedSubmission = data?.data;
+      if (!updatedSubmission) {
+        setApiError('Server returned invalid submission data.');
+        setSaving(false);
+        return;
+      }
+      onUpdateSubmission(updatedSubmission);
       setEditMode(false);
       setSaved(true);
       setErrors({});

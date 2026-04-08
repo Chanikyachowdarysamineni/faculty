@@ -29,6 +29,7 @@ const router = express.Router();
 
 const toClient = (doc) => ({
   id:          doc._id?.toString() || '',
+  slNo:        doc.slNo || 0,
   empId:       String(doc.empId || '').trim(),
   name:        String(doc.name || '').trim(),
   email:       String(doc.email || '').trim(),
@@ -56,8 +57,8 @@ router.get('/', requireAuth, validatePagination, async (req, res, next) => {
     const [total, docs] = await Promise.all([
       Faculty.countDocuments(filter),
       Faculty.find(filter)
-        .select('empId name email mobile designation department createdAt updatedAt')
-        .sort({ empId: 1 })
+        .select('slNo empId name email mobile designation department createdAt updatedAt')
+        .sort({ slNo: 1 })
         .skip(skip)
         .limit(limit)
         .lean(),

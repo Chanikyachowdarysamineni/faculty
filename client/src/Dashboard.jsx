@@ -259,8 +259,20 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
     }
 
     try {
-      const result = await fetchJsonWithRetry(`${API}/api/submissions/by-faculty/${user.id}`, { headers });
+      const result = await fetchJsonWithRetry(`${API}/api/submissions/by-faculty/${user.id}`, { 
+        headers,
+        silentMode: true // Suppress logs for expected 404 (no submission yet)
+      });
       const data = result.data || {};
+      
+      // 404 is expected if the faculty hasn't submitted yet — just ignore it
+      if (result.status === 404) {
+        setSubmissions([]);
+        setSubmissionsSyncError('');
+        setSubmissionsLastSyncedAt(new Date());
+        return;
+      }
+      
       if (result.success && data.success) {
         const list = Array.isArray(data.data) ? data.data : (data.data ? [data.data] : []);
         setSubmissions(list);
@@ -295,6 +307,14 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
       }
     };
 
+    // For non-admin: Fetch submissions ONCE on mount (no repeated refresh)
+    if (!isAdmin) {
+      refreshSubmissions();
+      refreshSettings();
+      return;
+    }
+
+    // For admin: Setup auto-refresh interval for submissions
     refreshSubmissions();
     refreshSettings();
 
@@ -497,20 +517,24 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
         method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ section: input.trim() }),
       });
       const data = await res.json();
-      if (data.success) {
-        setSectionsConfig(data.data || null);
-        setSharedSectionsConfig(data.data || null);
+      if (!res.ok || !data?.success) {
+        console.warn('Section add failed:', data?.message);
+        return;
       }
+      setSectionsConfig(data?.data || null);
+      setSharedSectionsConfig(data?.data || null);
     } else if (mode === 'rename') {
       if (!input.trim() || input.trim() === section) return;
       const res = await fetch(`${API}/api/settings/sections/${encodeURIComponent(sectionYear)}/${encodeURIComponent(section)}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ newSection: input.trim() }),
       });
       const data = await res.json();
-      if (data.success) {
-        setSectionsConfig(data.data || null);
-        setSharedSectionsConfig(data.data || null);
+      if (!res.ok || !data?.success) {
+        console.warn('Section rename failed:', data?.message);
+        return;
       }
+      setSectionsConfig(data?.data || null);
+      setSharedSectionsConfig(data?.data || null);
     } else if (mode === 'delete') {
       const res = await fetch(`${API}/api/settings/sections/${encodeURIComponent(sectionYear)}/${encodeURIComponent(section)}`, {
         method: 'DELETE', headers: authHeaders(),

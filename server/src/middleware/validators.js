@@ -146,8 +146,8 @@ const validateFacultyUpdate = [
     .optional({ checkFalsy: true })
     .trim()
     .if((value) => value && String(value).trim() !== '')
-    .matches(/^[0-9]{10}$/)
-    .withMessage('Mobile number must be exactly 10 digits'),
+    .matches(/^[0-9\s\-\+\(\)]{7,15}$/)
+    .withMessage('Mobile number must be 7-15 characters (digits, spaces, hyphens, plus, parentheses)'),
 
   body('designation')
     .optional({ checkFalsy: true })
@@ -248,13 +248,22 @@ const validateSubmissionCreate = [
     .notEmpty()
     .withMessage('Employee ID is required'),
 
-  body('courseIds')
-    .isArray({ min: 1 })
-    .withMessage('At least one course must be selected'),
-
-  body('courseIds.*')
-    .isInt({ min: 1 })
-    .withMessage('Each course ID must be a valid number'),
+  body('prefs')
+    .custom((value) => {
+      if (!Array.isArray(value)) {
+        throw new Error('Preferences must be an array');
+      }
+      if (value.length === 0) {
+        throw new Error('At least one course must be selected');
+      }
+      for (const item of value) {
+        const num = Number(item);
+        if (!Number.isInteger(num) || num < 1) {
+          throw new Error('Each course ID must be a valid number');
+        }
+      }
+      return true;
+    }),
 
   handleValidationErrors,
 ];
