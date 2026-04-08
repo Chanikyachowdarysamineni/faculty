@@ -591,9 +591,8 @@
 .rp-brand-logo {
   width: 44px; height: 44px;
   border-radius: 14px;
-  background: linear-gradient(135deg, #6b74e8, #a855c8);
-  box-shadow: 0 4px 20px rgba(107,116,232,.5);
   flex-shrink: 0;
+  object-fit: contain;
 }
 .rp-brand-name {
   font-size: 16px;

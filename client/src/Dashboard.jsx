@@ -814,10 +814,10 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
         <div className="rp-container">
           {/* Brand header */}
           <div className="rp-brand">
-            <div className="rp-brand-logo" />
+            <img src="/logo.webp" alt="Logo" className="rp-brand-logo" />
             <div>
               <div className="rp-brand-name">Faculty Workload Management</div>
-              <div className="rp-brand-sub">GITAM University Â· CSE Department</div>
+              <div className="rp-brand-sub">Vignan Foundation For Science Technology & Research · CSE Department</div>
             </div>
           </div>
 
