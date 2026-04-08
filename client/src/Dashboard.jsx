@@ -911,7 +911,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
         </button>
 
         <div className="dash-topbar-brand">
-          <div className="dash-logo-mark" />
+          <img src="/logo.webp" alt="Logo" className="dash-logo-mark" />
           <div className="dash-brand">
             <span className="dash-site-name">Faculty Work Load Management</span>
             <span className="dash-breadcrumb">
