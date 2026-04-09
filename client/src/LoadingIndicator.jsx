@@ -51,3 +51,4 @@ const GlobalLoadingIndicator = ({ message }) => {
 };
 
 export default LoadingProvider;
+

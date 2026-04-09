@@ -1,0 +1,54 @@
+# Production Docker Compose - With External Database
+# For running WLM backend on production server at http://160.187.169.41
+
+version: '3.9'
+
+services:
+  wlm-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    container_name: wlm-backend
+    
+    # Load production environment
+    env_file:
+      - .env.production
+    
+    # Expose backend on port 5000
+    ports:
+      - "5000:5000"
+    
+    # Health check every 30 seconds
+    healthcheck:
+      test: ["GET", "/deva/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Always restart on failure
+    restart: unless-stopped
+    
+    # Resource limits
+    resources:
+      limits:
+        cpus: '2'
+        memory: 1G
+      reservations:
+        cpus: '1'
+        memory: 512M
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    networks:
+      - wlm-network
+
+networks:
+  wlm-network:
+    driver: bridge

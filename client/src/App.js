@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import ErrorBoundary from './ErrorBoundary';
 import ToastProvider from './Toast';
 import LoadingProvider from './LoadingIndicator';
 import { DataProvider } from './DataContext';
+import { AuthProvider } from './AuthContext';
 import LoginPage from './LoginPage';
 import Dashboard from './Dashboard';
+import { publicRoutes, protectedRoutes } from './routes';
 
 // Restore a previously saved session (token and user payload saved at login)
 function loadSavedUser() {
@@ -13,7 +16,6 @@ function loadSavedUser() {
     const raw   = localStorage.getItem('wlm_user');
     if (!token || !raw) return null;
     const user = JSON.parse(raw);
-    // Must have an id and role — discard any stale/incomplete entries
     if (!user?.id || !user?.role) {
       localStorage.removeItem('wlm_token');
       localStorage.removeItem('wlm_user');
@@ -25,153 +27,24 @@ function loadSavedUser() {
   }
 }
 
-// Session timeout constants (in seconds)
-const SESSION_TIMEOUT_SECONDS = 30 * 60; // 30 minutes
-const WARNING_THRESHOLD_SECONDS = 2 * 60; // 2 minutes before timeout
+const SESSION_TIMEOUT_SECONDS = 30 * 60;
+const WARNING_THRESHOLD_SECONDS = 2 * 60;
 
-function AppContent() {
-  const [currentUser, setCurrentUser] = useState(loadSavedUser);
-  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
-  const [remainingSeconds, setRemainingSeconds] = useState(SESSION_TIMEOUT_SECONDS);
-  
-  // Use refs to track session state without triggering re-renders
-  const sessionTimerRef = useRef(null);
-  const countdownRef = useRef(null);
-  const lastActivityRef = useRef(Date.now());
-  const sessionStartRef = useRef(null);
-
-  const handleLogin = useCallback((user) => {
-    localStorage.setItem('wlm_user', JSON.stringify(user));
-    setCurrentUser(user);
-    lastActivityRef.current = Date.now();
-    setShowTimeoutWarning(false);
-  }, []);
-
-  const handleLogout = useCallback(async () => {
-    // Clear all timers first
-    if (sessionTimerRef.current) clearTimeout(sessionTimerRef.current);
-    if (countdownRef.current) clearInterval(countdownRef.current);
-
-    // Try to call logout endpoint
-    try {
-      const token = localStorage.getItem('wlm_token');
-      if (token) {
-        await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/auth/logout`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }).catch(() => {}); // Ignore errors
-      }
-    } catch (err) {
-      console.error('Logout API call failed:', err);
-    }
-    
-    localStorage.removeItem('wlm_token');
-    localStorage.removeItem('wlm_user');
-    setCurrentUser(null);
-    setShowTimeoutWarning(false);
-    setRemainingSeconds(SESSION_TIMEOUT_SECONDS);
-  }, []);
-
-  // Start/reset the countdown timer
-  const startCountdown = useCallback(() => {
-    // Clear existing countdown
-    if (countdownRef.current) clearInterval(countdownRef.current);
-
-    let timeLeft = SESSION_TIMEOUT_SECONDS;
-    setRemainingSeconds(timeLeft);
-
-    // Update UI every second
-    countdownRef.current = setInterval(() => {
-      timeLeft--;
-      setRemainingSeconds(timeLeft);
-
-      // Show warning when 2 minutes remaining
-      if (timeLeft === WARNING_THRESHOLD_SECONDS) {
-        setShowTimeoutWarning(true);
-      }
-
-      // Auto-logout when time is up
-      if (timeLeft <= 0) {
-        clearInterval(countdownRef.current);
-        handleLogout();
-      }
-    }, 1000);
-  }, [handleLogout]);
-
-  // Reset session timeout on user activity
-  const resetSessionTimeout = useCallback(async () => {
-    const now = Date.now();
-    const timeSinceLastActivity = now - lastActivityRef.current;
-
-    // Debounce: only reset if at least 3 seconds passed since last activity
-    if (timeSinceLastActivity < 3000) return;
-
-    lastActivityRef.current = now;
-    setShowTimeoutWarning(false);
-
-    // Clear existing session timer
-    if (sessionTimerRef.current) clearTimeout(sessionTimerRef.current);
-    if (countdownRef.current) clearInterval(countdownRef.current);
-
-    // Start fresh countdown
-    startCountdown();
-  }, [startCountdown]);
-
-  // Initialize session timer when user logs in
-  useEffect(() => {
-    if (!currentUser) {
-      // Cleanup on logout
-      if (sessionTimerRef.current) clearTimeout(sessionTimerRef.current);
-      if (countdownRef.current) clearInterval(countdownRef.current);
-      return;
-    }
-
-    // Start fresh session
-    lastActivityRef.current = Date.now();
-    sessionStartRef.current = Date.now();
-    setShowTimeoutWarning(false);
-    startCountdown();
-
-    // Cleanup on unmount or user change
-    return () => {
-      if (sessionTimerRef.current) clearTimeout(sessionTimerRef.current);
-      if (countdownRef.current) clearInterval(countdownRef.current);
-    };
-  }, [currentUser, startCountdown]);
-
-  // Track user activity and reset session
-  useEffect(() => {
-    if (!currentUser) return;
-
-    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
-    
-    const handleActivity = () => {
-      resetSessionTimeout();
-    };
-
-    // Add event listeners
-    activityEvents.forEach(event => {
-      document.addEventListener(event, handleActivity, true); // Use capture phase
-    });
-
-    // Cleanup event listeners
-    return () => {
-      activityEvents.forEach(event => {
-        document.removeEventListener(event, handleActivity, true);
-      });
-    };
-  }, [currentUser, resetSessionTimeout]);
-
-  // Handle unauthorized events
-  useEffect(() => {
-    const onUnauthorized = () => handleLogout();
-    window.addEventListener('wlm:unauthorized', onUnauthorized);
-    return () => window.removeEventListener('wlm:unauthorized', onUnauthorized);
-  }, [handleLogout]);
-
+/**
+ * AppContent Component
+ * 
+ * Renders the appropriate routes and UI based on authentication status
+ * Displays session timeout warnings for authenticated users
+ */
+function AppContent({
+  currentUser,
+  onLogout,
+  onLogin,
+  remainingSeconds,
+  resetSessionTimeout,
+  showTimeoutWarning,
+  setShowTimeoutWarning,
+}) {
   if (currentUser) {
     const formatTime = (seconds) => {
       const mins = Math.floor(seconds / 60);
@@ -258,26 +131,180 @@ function AppContent() {
             </div>
           </div>
         )}
-        <Dashboard user={currentUser} onLogout={handleLogout} remainingSeconds={remainingSeconds} />
+        <Routes>
+          {protectedRoutes.map((route, index) => (
+            <Route key={index} path={route.path} element={route.element} />
+          ))}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </>
     );
   }
 
-  return <LoginPage onLogin={handleLogin} />;
+  return (
+    <Routes>
+      {publicRoutes.map((route, index) => (
+        <Route key={index} path={route.path} element={route.element} />
+      ))}
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  );
 }
 
 function App() {
+  // Move user state to App level so it persists across routes
+  const [currentUser, setCurrentUser] = useState(loadSavedUser);
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
+  const [remainingSeconds, setRemainingSeconds] = useState(SESSION_TIMEOUT_SECONDS);
+  
+  const sessionTimerRef = useRef(null);
+  const countdownRef = useRef(null);
+  const lastActivityRef = useRef(Date.now());
+  const sessionStartRef = useRef(null);
+
+  const handleLogin = useCallback((user) => {
+    localStorage.setItem('wlm_user', JSON.stringify(user));
+    setCurrentUser(user);
+    lastActivityRef.current = Date.now();
+    setShowTimeoutWarning(false);
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    if (sessionTimerRef.current) clearTimeout(sessionTimerRef.current);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+
+    try {
+      const token = localStorage.getItem('wlm_token');
+      if (token) {
+        await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/deva/auth/logout`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }).catch(() => {});
+      }
+    } catch (err) {
+      console.error('Logout API call failed:', err);
+    }
+    
+    localStorage.removeItem('wlm_token');
+    localStorage.removeItem('wlm_user');
+    setCurrentUser(null);
+    setShowTimeoutWarning(false);
+    setRemainingSeconds(SESSION_TIMEOUT_SECONDS);
+  }, []);
+
+  const startCountdown = useCallback(() => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+
+    let timeLeft = SESSION_TIMEOUT_SECONDS;
+    setRemainingSeconds(timeLeft);
+
+    countdownRef.current = setInterval(() => {
+      timeLeft--;
+      setRemainingSeconds(timeLeft);
+
+      if (timeLeft === WARNING_THRESHOLD_SECONDS) {
+        setShowTimeoutWarning(true);
+      }
+
+      if (timeLeft <= 0) {
+        clearInterval(countdownRef.current);
+        handleLogout();
+      }
+    }, 1000);
+  }, [handleLogout]);
+
+  const resetSessionTimeout = useCallback(async () => {
+    const now = Date.now();
+    const timeSinceLastActivity = now - lastActivityRef.current;
+
+    if (timeSinceLastActivity < 3000) return;
+
+    lastActivityRef.current = now;
+    setShowTimeoutWarning(false);
+
+    if (sessionTimerRef.current) clearTimeout(sessionTimerRef.current);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+
+    startCountdown();
+  }, [startCountdown]);
+
+  useEffect(() => {
+    if (!currentUser) {
+      if (sessionTimerRef.current) clearTimeout(sessionTimerRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+      return;
+    }
+
+    lastActivityRef.current = Date.now();
+    sessionStartRef.current = Date.now();
+    setShowTimeoutWarning(false);
+    startCountdown();
+
+    return () => {
+      if (sessionTimerRef.current) clearTimeout(sessionTimerRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, [currentUser, startCountdown]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    
+    const handleActivity = () => {
+      resetSessionTimeout();
+    };
+
+    activityEvents.forEach(event => {
+      document.addEventListener(event, handleActivity, true);
+    });
+
+    return () => {
+      activityEvents.forEach(event => {
+        document.removeEventListener(event, handleActivity, true);
+      });
+    };
+  }, [currentUser, resetSessionTimeout]);
+
+  useEffect(() => {
+    const onUnauthorized = () => handleLogout();
+    window.addEventListener('wlm:unauthorized', onUnauthorized);
+    return () => window.removeEventListener('wlm:unauthorized', onUnauthorized);
+  }, [handleLogout]);
+
   return (
-    <ErrorBoundary>
-      <DataProvider>
-        <ToastProvider>
-          <LoadingProvider>
-            <AppContent />
-          </LoadingProvider>
-        </ToastProvider>
-      </DataProvider>
-    </ErrorBoundary>
+    <Router basename="/csefaculty">
+      <ErrorBoundary>
+        <DataProvider>
+          <AuthProvider 
+            currentUser={currentUser}
+            onLogout={handleLogout}
+            onLogin={handleLogin}
+            remainingSeconds={remainingSeconds}
+            resetSessionTimeout={resetSessionTimeout}
+          >
+            <ToastProvider>
+              <LoadingProvider>
+                <AppContent 
+                  currentUser={currentUser}
+                  onLogout={handleLogout}
+                  onLogin={handleLogin}
+                  remainingSeconds={remainingSeconds}
+                  resetSessionTimeout={resetSessionTimeout}
+                  showTimeoutWarning={showTimeoutWarning}
+                  setShowTimeoutWarning={setShowTimeoutWarning}
+                />
+              </LoadingProvider>
+            </ToastProvider>
+          </AuthProvider>
+        </DataProvider>
+      </ErrorBoundary>
+    </Router>
   );
 }
 
 export default App;
+

@@ -24,7 +24,7 @@ const AuditLogPage = () => {
       if (filters.from)       params.set('from',       filters.from);
       if (filters.to)         params.set('to',         filters.to);
 
-      const res  = await fetch(`${API}/api/audit-logs?${params}`, {
+      const res  = await fetch(`${API}/deva/audit-logs?${params}`, {
         headers: { Authorization: `Bearer ${token()}` },
       });
       const data = await res.json();
@@ -250,3 +250,4 @@ const actionColor = (action = '') => {
 };
 
 export default AuditLogPage;
+

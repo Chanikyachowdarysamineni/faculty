@@ -4,9 +4,21 @@ import { fetchAllPages, authJsonHeaders } from './utils/apiFetchAll';
 import { useSharedData } from './DataContext';
 import './FacultyPage.css';
 
-const EMPTY_FORM = { slNo: '', empId: '', name: '', designation: '', mobile: '', email: '' };
+const EMPTY_FORM = { empId: '', name: '', designation: '', mobile: '', email: '' };
 
-const FacultyPage = () => {
+// Designation options extracted from faculty data
+const DESIGNATION_OPTIONS = [
+  'Professor & Dean, SOCI',
+  'Professor & HOD',
+  'Associate Professor',
+  'Assistant Professor',
+  'Assistant Professor (Contract)',
+  'CAP',
+  'Teaching Associate',
+  'Teaching Instructor',
+];
+
+const FacultyPage = ({ isAdmin = false }) => {
   const { faculty: contextFaculty, setFaculty } = useSharedData();
   
   const [list, setList]           = useState([]);
@@ -61,7 +73,7 @@ const FacultyPage = () => {
     try {
       await Promise.all(
         reordered.map((f) =>
-          fetch(`${API}/api/faculty/${encodeURIComponent(f.empId)}`, {
+          fetch(`${API}/deva/faculty/${encodeURIComponent(f.empId)}`, {
             method: 'PUT',
             headers: authHeaders(),
             body: JSON.stringify({ slNo: f.slNo }),
@@ -132,7 +144,7 @@ const FacultyPage = () => {
     };
     try {
       const res = await fetch(
-        editTarget ? `${API}/api/faculty/${encodeURIComponent(editTarget.empId)}` : `${API}/api/faculty`,
+        editTarget ? `${API}/deva/faculty/${encodeURIComponent(editTarget.empId)}` : `${API}/deva/faculty`,
         {
           method: editTarget ? 'PUT' : 'POST',
           headers: authHeaders(),
@@ -168,7 +180,7 @@ const FacultyPage = () => {
   // ── Delete ─────────────────────────────────────────────
   const handleDelete = async () => {
     try {
-      const res = await fetch(`${API}/api/faculty/${encodeURIComponent(deleteConfirm.empId)}`, {
+      const res = await fetch(`${API}/deva/faculty/${encodeURIComponent(deleteConfirm.empId)}`, {
         method: 'DELETE',
         headers: authHeaders(),
       });
@@ -263,15 +275,17 @@ const FacultyPage = () => {
             )}
           </button>
 
-          {/* Export */}
-          <button className="fp-btn fp-btn-export" onClick={exportCSV}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-              fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            Export
-          </button>
+          {/* Download */}
+          {isAdmin && (
+            <button className="fp-btn fp-btn-export" onClick={exportCSV}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Download
+            </button>
+          )}
 
           {/* Add Faculty */}
           <button className="fp-btn fp-btn-add" onClick={openAdd}>
@@ -309,7 +323,6 @@ const FacultyPage = () => {
           <thead>
             <tr>
               {isDragMode && <th className="fp-th-grip" title="Drag to reorder">⠿</th>}
-              <th>Sl.No</th>
               <th>Emp ID</th>
               <th>Name of the Faculty</th>
               <th>Designation</th>
@@ -341,7 +354,6 @@ const FacultyPage = () => {
                       <span className="fp-grip-icon" title="Drag to reorder">⠿</span>
                     </td>
                   )}
-                  <td className="fp-td-center">{f.slNo}</td>
                   <td className="fp-td-empid">{f.empId}</td>
                   <td className="fp-td-name">{f.name}</td>
                   <td>
@@ -393,12 +405,7 @@ const FacultyPage = () => {
                 <div className="fp-form-group">
                   <label>Employee ID *</label>
                   <input value={form.empId} onChange={e => setForm({...form, empId: e.target.value})}
-                    placeholder="e.g. 1234" required disabled={!!editTarget} />
-                </div>
-                <div className="fp-form-group">
-                  <label>Sl.No</label>
-                  <input value={form.slNo} onChange={e => setForm({...form, slNo: e.target.value})}
-                    placeholder="e.g. 87" />
+                    placeholder="e.g. 1234" required disabled={!isAdmin && !!editTarget} />
                 </div>
                 <div className="fp-form-group fp-form-full">
                   <label>Name of Faculty *</label>
@@ -406,9 +413,14 @@ const FacultyPage = () => {
                     placeholder="e.g. Dr. John Smith" required />
                 </div>
                 <div className="fp-form-group fp-form-full">
-                  <label>Designation</label>
-                  <input value={form.designation} onChange={e => setForm({...form, designation: e.target.value})}
-                    placeholder="e.g. Asst. Prof." />
+                  <label>Designation *</label>
+                  <select value={form.designation} onChange={e => setForm({...form, designation: e.target.value})}
+                    required>
+                    <option value="">Select Designation</option>
+                    {DESIGNATION_OPTIONS.map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="fp-form-group">
                   <label>Mobile No</label>
@@ -472,3 +484,4 @@ const getDesigClass = (d = '') => {
 };
 
 export default FacultyPage;
+

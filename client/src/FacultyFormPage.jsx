@@ -109,7 +109,7 @@ const FacultyFormPage = ({
     if (editMode) {
       // PUT /api/submissions/by-faculty/:empId
       try {
-        const res  = await fetch(`${API}/api/submissions/by-faculty/${foundFaculty.empId}`, {
+        const res  = await fetch(`${API}/deva/submissions/by-faculty/${foundFaculty.empId}`, {
           method: 'PUT', headers: authHeaders(),
           body: JSON.stringify({ prefs: prefs.filter(Boolean).map(Number) }),
         });
@@ -147,7 +147,7 @@ const FacultyFormPage = ({
       const effectiveFaculty = empIdInput === '__other__'
         ? { empId: empOtherDetails.empId.trim(), name: empOtherDetails.name || empOtherDetails.empId, designation: empOtherDetails.designation || 'Other', mobile: '' }
         : foundFaculty;
-      const res  = await fetch(`${API}/api/submissions`, {
+      const res  = await fetch(`${API}/deva/submissions`, {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify({
           empId:       effectiveFaculty.empId,
@@ -202,7 +202,7 @@ const FacultyFormPage = ({
     setExportLoading(true);
     setExportError('');
     try {
-      const res = await fetch(`${API}/api/submissions/export?format=${format}`, {
+      const res = await fetch(`${API}/deva/submissions/export?format=${format}`, {
         method: 'GET',
         headers: authHeaders(),
       });
@@ -263,7 +263,7 @@ const FacultyFormPage = ({
                 onClick={async () => {
                   const next = !editEnabled;
                   setEditEnabled(next);
-                  await fetch(`${API}/api/settings/edit-status`, {
+                  await fetch(`${API}/deva/settings/edit-status`, {
                     method: 'PUT', headers: authHeaders(),
                     body: JSON.stringify({ editEnabled: next }),
                   }).catch(() => {});
@@ -277,7 +277,7 @@ const FacultyFormPage = ({
                 onClick={async () => {
                   const next = !formEnabled;
                   setFormEnabled(next);
-                  await fetch(`${API}/api/settings/form-status`, {
+                  await fetch(`${API}/deva/settings/form-status`, {
                     method: 'PUT', headers: authHeaders(),
                     body: JSON.stringify({ formEnabled: next }),
                   }).catch(() => {});
@@ -684,7 +684,7 @@ const FacultyFormPage = ({
                               e.stopPropagation();
                               if (!window.confirm('Delete this submission?')) return;
                               try {
-                                const res = await fetch(`${API}/api/submissions/${s.id}`, {
+                                const res = await fetch(`${API}/deva/submissions/${s.id}`, {
                                   method: 'DELETE', headers: authHeaders(),
                                 });
                                 const data = await res.json();
@@ -730,3 +730,4 @@ const FacultyFormPage = ({
 };
 
 export default FacultyFormPage;
+

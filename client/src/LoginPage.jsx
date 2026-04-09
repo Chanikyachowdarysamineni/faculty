@@ -26,7 +26,7 @@ const LoginPage = ({ onLogin }) => {
     }
     setLoading(true);
     try {
-      const res  = await fetch(`${API}/api/auth/login`, {
+      const res  = await fetch(`${API}/deva/auth/login`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ employeeId: employeeId.trim(), password }),
@@ -50,7 +50,7 @@ const LoginPage = ({ onLogin }) => {
   const handleForgotSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${API}/api/auth/forgot-password`, {
+      const res = await fetch(`${API}/deva/auth/forgot-password`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ employeeId: forgotId.trim() }),
@@ -71,7 +71,7 @@ const LoginPage = ({ onLogin }) => {
     setResetting(true);
     setResetMessage('');
     try {
-      const res = await fetch(`${API}/api/auth/reset-password`, {
+      const res = await fetch(`${API}/deva/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: resetToken.trim(), newPassword }),
@@ -303,3 +303,4 @@ const LoginPage = ({ onLogin }) => {
 };
 
 export default LoginPage;
+

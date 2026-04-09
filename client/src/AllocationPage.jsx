@@ -1,10 +1,10 @@
-﻿/**
+/**
  * AllocationPage.jsx
  *
  * Faculty Workload Allocation Grid
- *  ─ Rows  = Course × Type (L / T / P) × sub-rows (L → 1 row; T & P → always 4 rows)
- *  ─ Cols  = Sections (dynamic, admin can add)
- *  ─ Auto-fill: selecting L-Row-1 faculty instantly copies to T-Row-1 & P-Row-1
+ *  - Rows  = Course � Type (L / T / P) � sub-rows (L ? 1 row; T & P ? always 4 rows)
+ *  - Cols  = Sections (dynamic, admin can add)
+ *  - Auto-fill: selecting L-Row-1 faculty instantly copies to T-Row-1 & P-Row-1
  *               for the SAME course + section (still manually overridable)
  */
 
@@ -19,8 +19,8 @@ import {
   fetchSectionsConfig,
 } from './utils/sectionsApi';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-const PROGRAMS    = ['B.Tech', 'M.Tech'];
+// -- Constants -----------------------------------------------------------------
+const PROGRAMS    = ['B.Tech'];
 const YEARS_BTECH = ['I', 'II', 'III', 'IV'];
 
 const TYPE_LABEL = { L: 'Lecture', T: 'Tutorial', P: 'Practical' };
@@ -42,9 +42,9 @@ const isTADesignation = (designation = '') => {
 
 /**
  * Sub-row count per type:
- *  L → always 1 row  (single main-faculty slot)
- *  T → always 4 rows (if course has tutorial hours)
- *  P → always 4 rows (if course has practical hours)
+ *  L ? always 1 row  (single main-faculty slot)
+ *  T ? always 4 rows (if course has tutorial hours)
+ *  P ? always 4 rows (if course has practical hours)
  *  Returns 0 when the course has no hours for that type (skips the block).
  */
 const typeRowCount = (course, type) => {
@@ -58,7 +58,7 @@ const authHeader = () => ({
   ...authJsonHeaders(),
 });
 
-// ── CellPicker ────────────────────────────────────────────────────────────────
+// -- CellPicker ----------------------------------------------------------------
 const CellPicker = ({ courseId, section, type, rowIdx, empId, isAuto, isAdmin, onSelect, facultyStatusMap = {}, facultyList = [] }) => {
   const [open,   setOpen]   = useState(false);
   const [search, setSearch] = useState('');
@@ -112,8 +112,8 @@ const CellPicker = ({ courseId, section, type, rowIdx, empId, isAuto, isAdmin, o
   if (!isAdmin) {
     return (
       <div className="ap-cell-readonly">
-        {shortN || <span className="ap-cell-dash">—</span>}
-        {isAuto && <span className="ap-auto-badge" title="Auto-filled">⟳</span>}
+        {shortN || <span className="ap-cell-dash">�</span>}
+        {isAuto && <span className="ap-auto-badge" title="Auto-filled">?</span>}
       </div>
     );
   }
@@ -127,8 +127,8 @@ const CellPicker = ({ courseId, section, type, rowIdx, empId, isAuto, isAdmin, o
       >
         {chosen
           ? <span className="ap-cell-name">{shortN}</span>
-          : <span className="ap-cell-empty">—</span>}
-        {isAuto && <span className="ap-auto-badge" title="Auto-filled from L Row 1">⟳</span>}
+          : <span className="ap-cell-empty">�</span>}
+        {isAuto && <span className="ap-auto-badge" title="Auto-filled from L Row 1">?</span>}
       </div>
 
       {open && (
@@ -136,7 +136,7 @@ const CellPicker = ({ courseId, section, type, rowIdx, empId, isAuto, isAdmin, o
           <input
             autoFocus
             className="ap-dd-search"
-            placeholder="Search name or ID…"
+            placeholder="Search name or ID�"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -145,7 +145,7 @@ const CellPicker = ({ courseId, section, type, rowIdx, empId, isAuto, isAdmin, o
               className="ap-dd-item ap-dd-clear"
               onMouseDown={() => { onSelect(''); setOpen(false); setSearch(''); }}
             >
-              ✕ Clear
+              ? Clear
             </div>
             {filtered.map(f => (
               <div
@@ -170,7 +170,7 @@ const CellPicker = ({ courseId, section, type, rowIdx, empId, isAuto, isAdmin, o
 
 
 
-// ── AllocationPage ─────────────────────────────────────────────────────────────
+// -- AllocationPage -------------------------------------------------------------
 const AllocationPage = ({ isAdmin = true }) => {
   const { faculty: contextFaculty, courses: contextCourses } = useSharedData();
   
@@ -201,7 +201,7 @@ const AllocationPage = ({ isAdmin = true }) => {
   }, [contextFaculty, contextCourses]);
 
   // yearKey must be defined before any hook that uses it
-  const yearKey = activeProgram === 'M.Tech' ? 'M.Tech' : activeYear;
+  const yearKey = activeYear;
 
   const markSynced = useCallback(() => setLastSyncedAt(new Date()), []);
 
@@ -216,7 +216,7 @@ const AllocationPage = ({ isAdmin = true }) => {
   const fetchWorkloads = useCallback(async () => {
     setWorkloadsLoading(true);
     try {
-      const result = await fetchAllPages('/api/workloads', { year: yearKey }, { headers: authHeader() });
+      const result = await fetchAllPages('/deva/workloads', { year: yearKey }, { headers: authHeader() });
       if (!result.success) {
         setWorkloads([]);
         console.error('Failed to fetch workloads:', result.message);
@@ -228,7 +228,7 @@ const AllocationPage = ({ isAdmin = true }) => {
       setWorkloads(workloadData);
       
       // Detailed logging for debugging
-      console.log('✅ Fetched Workloads:', {
+      console.log('? Fetched Workloads:', {
         totalCount: workloadData.length,
         year: yearKey,
         breakdown: {
@@ -254,7 +254,7 @@ const AllocationPage = ({ isAdmin = true }) => {
   const [mainFacultyMap, setMainFacultyMap] = useState({});
   const fetchMainFaculty = useCallback(async () => {
     try {
-      const url = `${API}/api/workloads/main-faculty?year=${encodeURIComponent(yearKey)}`;
+      const url = `${API}/deva/workloads/main-faculty?year=${encodeURIComponent(yearKey)}`;
       const result = await fetchJsonWithRetry(url, { headers: authHeader() });
       if (!result.success || !result.data?.success) {
         setMainFacultyMap({});
@@ -282,17 +282,15 @@ const AllocationPage = ({ isAdmin = true }) => {
   useEffect(() => { loadSectionsConfig(); }, [loadSectionsConfig]);
 
   const yearCourses = useMemo(() =>
-    activeProgram === 'M.Tech'
-      ? courseList.filter(c => c.program === 'M.Tech')
-      : courseList.filter(c => c.program === 'B.Tech' && c.year === activeYear),
-  [activeProgram, activeYear, courseList]);
+    courseList.filter(c => c.program === 'B.Tech' && c.year === activeYear),
+  [activeYear, courseList]);
 
-  // Maps `courseId__section__T__rowIdx` / `__P__rowIdx` → empId for TA workloads with allocationRow
+  // Maps `courseId__section__T__rowIdx` / `__P__rowIdx` ? empId for TA workloads with allocationRow
   const taWorkloadMap = useMemo(() => {
     const m = {};
     const taWorkloads = workloads.filter(w => w.facultyRole === 'TA');
     
-    console.log('📋 Building TA Workload Map:', {
+    console.log('?? Building TA Workload Map:', {
       totalWorkloads: workloads.length,
       taWorkloadsCount: taWorkloads.length,
       taWorkloadsSample: taWorkloads.slice(0, 5),
@@ -303,7 +301,7 @@ const AllocationPage = ({ isAdmin = true }) => {
         const rowIdx = Number(w.allocationRow);
         const course = yearCourses.find(c => c.id === Number(w.courseId));
         if (!course || rowIdx < 1 || rowIdx > 3) {
-          console.warn('⚠️ Skipping TA - invalid course or row:', { 
+          console.warn('?? Skipping TA - invalid course or row:', { 
             empId: w.empId, 
             courseId: w.courseId, 
             rowIdx, 
@@ -314,17 +312,17 @@ const AllocationPage = ({ isAdmin = true }) => {
         if (course.T > 0) {
           const tKey = `${w.courseId}__${w.section}__T__${rowIdx}`;
           m[tKey] = w.empId;
-          console.log('✅ Added TA to Tutorial slot:', { key: tKey, empId: w.empId });
+          console.log('? Added TA to Tutorial slot:', { key: tKey, empId: w.empId });
         }
         if (course.P > 0) {
           const pKey = `${w.courseId}__${w.section}__P__${rowIdx}`;
           m[pKey] = w.empId;
-          console.log('✅ Added TA to Practical slot:', { key: pKey, empId: w.empId });
+          console.log('? Added TA to Practical slot:', { key: pKey, empId: w.empId });
         }
       }
     });
     
-    console.log('📊 Final TA Workload Map:', { mapSize: Object.keys(m).length, map: m });
+    console.log('?? Final TA Workload Map:', { mapSize: Object.keys(m).length, map: m });
     return m;
   }, [workloads, yearCourses]);
 
@@ -372,13 +370,13 @@ const AllocationPage = ({ isAdmin = true }) => {
     return summary;
   }, [allocMap, yearCourses, sections, facultyList]);
 
-  // ── Fetch from server ────────────────────────────────────────────────────
+  // -- Fetch from server ----------------------------------------------------
   const fetchAllocations = useCallback(async ({ withLoader = true } = {}) => {
     if (withLoader) setLoading(true);
     try {
-      const data = await fetchAllPages('/api/allocations', {}, { headers: authHeader() });
+      const data = await fetchAllPages('/deva/allocations', {}, { headers: authHeader() });
       if (!data.success) {
-        console.error('❌ Failed to fetch allocations:', data.message);
+        console.error('? Failed to fetch allocations:', data.message);
         return { success: false, message: data.message || 'Could not load allocations.' };
       }
       
@@ -402,7 +400,7 @@ const AllocationPage = ({ isAdmin = true }) => {
         }, 0),
       };
       
-      console.log('✅ ALL ALLOCATIONS LOADED:', {
+      console.log('? ALL ALLOCATIONS LOADED:', {
         ...allocStats,
         serverStats: data.stats || {},
         sampleAllocations: allocArray.slice(0, 3),
@@ -411,7 +409,7 @@ const AllocationPage = ({ isAdmin = true }) => {
       
       return { success: true };
     } catch (error) {
-      console.error('❌ Error fetching allocations:', error);
+      console.error('? Error fetching allocations:', error);
       return { success: false, message: 'Could not load allocations.' };
     } finally {
       if (withLoader) setLoading(false);
@@ -461,12 +459,12 @@ const AllocationPage = ({ isAdmin = true }) => {
     };
   }, [refreshAllocationReadData]);
 
-  // ── Build allocMap from server data ──────────────────────────────────────
+  // -- Build allocMap from server data --------------------------------------
   useEffect(() => {
     const map = {};
     const allocationsByYear = allocations.filter(a => a.year === yearKey);
     
-    console.log('🔄 Building allocMap from allocations:', {
+    console.log('?? Building allocMap from allocations:', {
       totalAllocations: allocations.length,
       allocationsForYear: allocationsByYear.length,
       year: yearKey,
@@ -484,7 +482,7 @@ const AllocationPage = ({ isAdmin = true }) => {
         if (sl.empId) {
           const key = `${a.courseId}__${a.section}__L__${i}`;
           map[key] = sl.empId;
-          console.log('✅ Added Lecture slot:', { key, empId: sl.empId, empName: sl.empName });
+          console.log('? Added Lecture slot:', { key, empId: sl.empId, empName: sl.empName });
         }
       });
       
@@ -493,7 +491,7 @@ const AllocationPage = ({ isAdmin = true }) => {
         if (sl.empId) {
           const key = `${a.courseId}__${a.section}__T__${i}`;
           map[key] = sl.empId;
-          console.log('✅ Added Tutorial slot:', { key, slot: i + 1, empId: sl.empId });
+          console.log('? Added Tutorial slot:', { key, slot: i + 1, empId: sl.empId });
         }
       });
       
@@ -502,7 +500,7 @@ const AllocationPage = ({ isAdmin = true }) => {
         if (sl.empId) {
           const key = `${a.courseId}__${a.section}__P__${i}`;
           map[key] = sl.empId;
-          console.log('✅ Added Practical slot:', { key, slot: i + 1, empId: sl.empId });
+          console.log('? Added Practical slot:', { key, slot: i + 1, empId: sl.empId });
         }
       });
     });
@@ -515,7 +513,7 @@ const AllocationPage = ({ isAdmin = true }) => {
         map[`${key}__L__0`] = val.empId;
         if (course?.T > 0) map[`${key}__T__0`] = val.empId;
         if (course?.P > 0) map[`${key}__P__0`] = val.empId;
-        console.log('✅ Applied Main Faculty from workload:', { key, empId: val.empId });
+        console.log('? Applied Main Faculty from workload:', { key, empId: val.empId });
       }
     });
     
@@ -523,11 +521,11 @@ const AllocationPage = ({ isAdmin = true }) => {
     Object.entries(taWorkloadMap).forEach(([key, empId]) => {
       if (empId) {
         map[key] = empId;
-        console.log('✅ Applied TA from workload:', { key, empId });
+        console.log('? Applied TA from workload:', { key, empId });
       }
     });
     
-    console.log('📊 FINAL ALLOCMAP STATS:', {
+    console.log('?? FINAL ALLOCMAP STATS:', {
       totalMappings: Object.keys(map).length,
       map,
       mappedByType: {
@@ -541,7 +539,7 @@ const AllocationPage = ({ isAdmin = true }) => {
     setUnsaved(false);
   }, [allocations, yearKey, mainFacultyMap, taWorkloadMap, yearCourses]);
 
-  // ── Reset sections when year/program changes ──────────────────────────────
+  // -- Reset sections when year/program changes ------------------------------
   useEffect(() => {
     setSections([...(sectionsConfig[yearKey] || DEFAULT_SECTIONS[yearKey] || ['1'])]);
   }, [yearKey, sectionsConfig]);
@@ -551,7 +549,7 @@ const AllocationPage = ({ isAdmin = true }) => {
     persistTimersRef.current = {};
   }, []);
 
-  // ── isAutoFilled: T/P row-0 equals L row-0; or T/P row >= 1 mirrors opposite type; or TA workload-driven ──
+  // -- isAutoFilled: T/P row-0 equals L row-0; or T/P row >= 1 mirrors opposite type; or TA workload-driven --
   const isAutoFilled = useCallback((courseId, section, type, rowIdx) => {
     if (rowIdx === 0) {
       // R1 for T/P is auto-filled if it matches the main faculty workload assignment
@@ -565,7 +563,7 @@ const AllocationPage = ({ isAdmin = true }) => {
       const allocKey = `${courseId}__${section}__${type}__${rowIdx}`;
       const currentEmpId = allocMap[allocKey];
       if (taWorkloadMap[allocKey] && currentEmpId === taWorkloadMap[allocKey]) return true;
-      // T↔P mirror badge (manual mirror)
+      // T?P mirror badge (manual mirror)
       const mirrorType = type === 'T' ? 'P' : 'T';
       const mirrorEmpId = allocMap[`${courseId}__${section}__${mirrorType}__${rowIdx}`];
       return !!(currentEmpId && currentEmpId === mirrorEmpId);
@@ -573,7 +571,7 @@ const AllocationPage = ({ isAdmin = true }) => {
     return false;
   }, [allocMap, mainFacultyMap, taWorkloadMap]);
 
-  // ── Build faculty slot object, prefer details from assigned workloads ──
+  // -- Build faculty slot object, prefer details from assigned workloads --
   const toSlot = useCallback((empId, courseId, section) => {
     if (!empId) return { empId: '', empName: '', designation: '', hours: 0 };
     
@@ -587,14 +585,14 @@ const AllocationPage = ({ isAdmin = true }) => {
     );
     
     if (wl) {
-      console.log('✅ Workload found for slot:', { empId, courseId, section, workload: wl });
+      console.log('? Workload found for slot:', { empId, courseId, section, workload: wl });
       return { empId: wl.empId, empName: wl.empName, designation: wl.designation, hours: 0 };
     }
     
     // Log if workload not found but details exist separately
     const allWorkloadsForEmp = workloads.filter(w => w.empId === empId);
     if (allWorkloadsForEmp.length > 0) {
-      console.warn('⚠️ No exact match for slot, but faculty has other workloads:', { 
+      console.warn('?? No exact match for slot, but faculty has other workloads:', { 
         empId, 
         courseId, 
         section, 
@@ -623,7 +621,7 @@ const AllocationPage = ({ isAdmin = true }) => {
     const practicalSlots = collectSlots('P');
 
     try {
-      const res = await fetch(`${API}/api/allocations`, {
+      const res = await fetch(`${API}/deva/allocations`, {
         method: 'POST',
         headers: authHeader(),
         body: JSON.stringify({
@@ -673,20 +671,20 @@ const AllocationPage = ({ isAdmin = true }) => {
     }, 350);
   }, [persistAllocationForCombo, markSynced]);
 
-  // ── Main setter — auto-fill logic lives here ──────────────────────────────
+  // -- Main setter � auto-fill logic lives here ------------------------------
   const setFacultyAlloc = useCallback((courseId, section, type, rowIdx, empId) => {
     // ALWAYS prevent manual override for main slots (L/T/P Row 0) if mainFacultyMap exists
     const mainKey = `${courseId}__${section}`;
     if (rowIdx === 0 && mainFacultyMap[mainKey]?.empId) {
       // Do not allow manual change for R1 of any type - workload is the source of truth
-      showToast('⚠️ Main faculty slot (R1) is locked to workload assignment');
+      showToast('?? Main faculty slot (R1) is locked to workload assignment');
       return;
     }
     // Prevent manual override for TA workload-driven slots (R2-R4)
     if (rowIdx >= 1 && (type === 'T' || type === 'P')) {
       const taKey = `${courseId}__${section}__${type}__${rowIdx}`;
       if (taWorkloadMap[taKey]) {
-        showToast('⚠️ This TA slot is auto-assigned from the Workload module. Update the workload assignment to change it.');
+        showToast('?? This TA slot is auto-assigned from the Workload module. Update the workload assignment to change it.');
         return;
       }
     }
@@ -706,18 +704,18 @@ const AllocationPage = ({ isAdmin = true }) => {
                (w.facultyRole === 'Supporting Faculty' || w.facultyRole === 'TA')
         );
         if (!wlEntry) {
-          showToast('⚠ R2, R3, R4 can only be assigned to Supporting Faculty or TA (must be assigned in Workloads first).');
+          showToast('? R2, R3, R4 can only be assigned to Supporting Faculty or TA (must be assigned in Workloads first).');
           nextSnapshot = null;
           return prev;
         }
         // TA role: only Tutorial/Practical type allowed
         if (wlEntry.facultyRole === 'TA') {
           if (type !== 'T' && type !== 'P') {
-            showToast('⚠ TA can be assigned only in R2, R3, or R4 of Tutorial/Practical.');
+            showToast('? TA can be assigned only in R2, R3, or R4 of Tutorial/Practical.');
             nextSnapshot = null;
             return prev;
           }
-          // The mirror key (T↔P same row) is always allowed — skip duplicate check for it
+          // The mirror key (T?P same row) is always allowed � skip duplicate check for it
           const mirrorType = type === 'T' ? 'P' : 'T';
           const mirrorKey = `${courseId}__${section}__${mirrorType}__${rowIdx}`;
           const taRowKeys = [
@@ -726,7 +724,7 @@ const AllocationPage = ({ isAdmin = true }) => {
           ];
           const duplicateTa = taRowKeys.some((key) => key !== rowKey && key !== mirrorKey && next[key] === empId);
           if (duplicateTa) {
-            showToast('⚠ Duplicate TA assignment is not allowed for the same subject and section.');
+            showToast('? Duplicate TA assignment is not allowed for the same subject and section.');
             nextSnapshot = null;
             return prev;
           }
@@ -735,14 +733,14 @@ const AllocationPage = ({ isAdmin = true }) => {
 
       next[`${courseId}__${section}__${type}__${rowIdx}`] = empId;
 
-      // ★ Auto-fill: changing L R1 instantly mirrors to T R1 & P R1
+      // ? Auto-fill: changing L R1 instantly mirrors to T R1 & P R1
       if (type === 'L' && rowIdx === 0) {
         const course = courseList.find(c => c.id === courseId);
         if (course?.T > 0) next[`${courseId}__${section}__T__0`] = empId;
         if (course?.P > 0) next[`${courseId}__${section}__P__0`] = empId;
       }
 
-      // ★ Auto-mirror: assigning TA/Supporting to T row i ↔ auto-fills P row i (and vice-versa)
+      // ? Auto-mirror: assigning TA/Supporting to T row i ? auto-fills P row i (and vice-versa)
       if ((type === 'T' || type === 'P') && rowIdx >= 1) {
         const mirrorType = type === 'T' ? 'P' : 'T';
         const mirrorKey = `${courseId}__${section}__${mirrorType}__${rowIdx}`;
@@ -764,7 +762,7 @@ const AllocationPage = ({ isAdmin = true }) => {
     }
   }, [mainFacultyMap, taWorkloadMap, courseList, queueAutoPersist, facultyList, workloads]);
 
-  // ── Save all ──────────────────────────────────────────────────────────────
+  // -- Save all --------------------------------------------------------------
   const saveAll = async () => {
     setSaving(true);
     const combos = new Set();
@@ -796,7 +794,7 @@ const AllocationPage = ({ isAdmin = true }) => {
       const practicalSlots = collectSlots('P');
 
       try {
-        const res  = await fetch(`${API}/api/allocations`, {
+        const res  = await fetch(`${API}/deva/allocations`, {
           method:  'POST',
           headers: authHeader(),
           body:    JSON.stringify({
@@ -830,7 +828,7 @@ const AllocationPage = ({ isAdmin = true }) => {
     if (errors.length) {
       showToast(`Saved with ${errors.length} error(s).`);
     } else {
-      showToast('All allocations saved ✓');
+      showToast('All allocations saved ?');
       setUnsaved(false);
       await refreshAllocationReadData({ withLoader: false });
     }
@@ -874,7 +872,7 @@ const AllocationPage = ({ isAdmin = true }) => {
     });
     
     // Validation logging
-    console.log('📈 Allocation Export Rows Generation:', {
+    console.log('?? Allocation Export Rows Generation:', {
       totalRowsGenerated: rows.length,
       skippedEmptySlots: skippedCount,
       byType: {
@@ -923,16 +921,16 @@ const AllocationPage = ({ isAdmin = true }) => {
 
   const colCount = 3 + sections.length;
 
-  if (loading) return <div className="ap-loading">Loading allocations…</div>;
+  if (loading) return <div className="ap-loading">Loading allocations�</div>;
 
   return (
     <div className="ap-wrapper">
 
-      {/* ── Top bar ── */}
+      {/* -- Top bar -- */}
       <div className="ap-topbar">
         <div className="ap-topbar-left">
           <h2 className="ap-heading">Faculty Workload Allocation</h2>
-          {unsaved && <span className="ap-unsaved-badge">● Unsaved changes</span>}
+          {unsaved && <span className="ap-unsaved-badge">? Unsaved changes</span>}
           <span className="ap-sync-meta">Last synced: {formatSyncedAt(lastSyncedAt)}</span>
         </div>
         <div className="ap-topbar-right">
@@ -942,35 +940,35 @@ const AllocationPage = ({ isAdmin = true }) => {
                 className="ap-btn ap-btn-export"
                 onClick={() => refreshAllocationReadData({ withLoader: false })}
               >
-                ↻ Retry Sync
+                ? Retry Sync
               </button>
               <button
                 className="ap-btn ap-btn-save"
                 onClick={saveAll}
                 disabled={saving || !unsaved}
               >
-                {saving ? 'Saving…' : '💾 Save All'}
+                {saving ? 'Saving�' : '?? Save All'}
               </button>
               <button
                 className="ap-btn ap-btn-export"
                 onClick={() => exportAllocations('csv')}
                 disabled={allocationExportRows.length === 0}
               >
-                ↓ CSV
+                ? CSV
               </button>
               <button
                 className="ap-btn ap-btn-export"
                 onClick={() => exportAllocations('excel')}
                 disabled={allocationExportRows.length === 0}
               >
-                ↓ Excel
+                ? Excel
               </button>
               <button
                 className="ap-btn ap-btn-export"
                 onClick={() => exportAllocations('pdf')}
                 disabled={allocationExportRows.length === 0}
               >
-                ↓ PDF
+                ? PDF
               </button>
             </>
           )}
@@ -979,12 +977,12 @@ const AllocationPage = ({ isAdmin = true }) => {
 
       {apiError && (
         <div className="ap-error-banner">
-          <span>⚠️ {apiError}</span>
+          <span>?? {apiError}</span>
           <button className="ap-error-retry" onClick={() => refreshAllocationReadData({ withLoader: true })}>Retry</button>
         </div>
       )}
 
-      {/* ── Program tabs ── */}
+      {/* -- Program tabs -- */}
       <div className="ap-prog-tabs">
         {PROGRAMS.map(p => (
           <button
@@ -997,7 +995,7 @@ const AllocationPage = ({ isAdmin = true }) => {
         ))}
       </div>
 
-      {/* ── Year tabs (B.Tech only) ── */}
+      {/* -- Year tabs (B.Tech only) -- */}
       {activeProgram === 'B.Tech' && (
         <div className="ap-year-tabs">
           {YEARS_BTECH.map(y => (
@@ -1012,7 +1010,7 @@ const AllocationPage = ({ isAdmin = true }) => {
         </div>
       )}
 
-      {/* ── Section bar ── */}
+      {/* -- Section bar -- */}
       <div className="ap-section-bar">
         <span className="ap-section-label">Sections:</span>
         {sections.map((s, i) => (
@@ -1022,29 +1020,29 @@ const AllocationPage = ({ isAdmin = true }) => {
         ))}
       </div>
 
-      {/* ── Legend ── */}
+      {/* -- Legend -- */}
       <div className="ap-legend">
-        <span className="ap-leg-item"><span className="ap-leg-dot ap-leg-dot-L" />L – Lecture</span>
-        <span className="ap-leg-item"><span className="ap-leg-dot ap-leg-dot-T" />T – Tutorial</span>
-        <span className="ap-leg-item"><span className="ap-leg-dot ap-leg-dot-P" />P – Practical</span>
-        <span className="ap-leg-item"><span className="ap-leg-dot ap-leg-dot-auto" />⟳ Auto-filled (L R1 → T/P R1 &amp; T↔P same row)</span>
-        <span className="ap-leg-item"><span className="ap-leg-star">★</span> Main Faculty (L Row 1)</span>
+        <span className="ap-leg-item"><span className="ap-leg-dot ap-leg-dot-L" />L � Lecture</span>
+        <span className="ap-leg-item"><span className="ap-leg-dot ap-leg-dot-T" />T � Tutorial</span>
+        <span className="ap-leg-item"><span className="ap-leg-dot ap-leg-dot-P" />P � Practical</span>
+        <span className="ap-leg-item"><span className="ap-leg-dot ap-leg-dot-auto" />? Auto-filled (L R1 ? T/P R1 &amp; T?P same row)</span>
+        <span className="ap-leg-item"><span className="ap-leg-star">?</span> Main Faculty (L Row 1)</span>
       </div>
 
       {isAdmin && (
         <div className="ap-autofill-notice">
-          💡 <strong>R1</strong> (Main Faculty) is locked to workload assignment. Selecting faculty in <strong>L R1</strong> auto-fills
+          ?? <strong>R1</strong> (Main Faculty) is locked to workload assignment. Selecting faculty in <strong>L R1</strong> auto-fills
           <strong> T R1</strong> and <strong>P R1</strong> instantly.
           &nbsp;|&nbsp; <strong>R2, R3, R4</strong> are reserved for <strong>Supporting Faculty</strong> and <strong>TA</strong> only.
           &nbsp;|&nbsp; Assigning a TA in <strong>T R2/R3/R4</strong> automatically mirrors to the same <strong>P row</strong> (and vice-versa).
         </div>
       )}
 
-      {/* ── Allocation Grid ── */}
+      {/* -- Allocation Grid -- */}
       <div className="ap-grid-wrap">
         {yearCourses.length === 0 ? (
           <div className="ap-empty">
-            No courses found for {activeProgram === 'M.Tech' ? 'M.Tech' : `${activeYear} Year`}.
+            No courses found for {activeYear} Year.
           </div>
         ) : (
           <table className="ap-table">
@@ -1088,7 +1086,7 @@ const AllocationPage = ({ isAdmin = true }) => {
                           rowIdx === rowCount - 1 ? 'ap-tr-type-last' : '',
                         ].filter(Boolean).join(' ')}
                       >
-                        {/* Course cell — one per course, rowSpan = all type rows */}
+                        {/* Course cell � one per course, rowSpan = all type rows */}
                         {isFirstOfCourse && (
                           <td rowSpan={totalRows} className="ap-td-course">
                             <div className="ap-course-code">{course.subjectCode}</div>
@@ -1102,7 +1100,7 @@ const AllocationPage = ({ isAdmin = true }) => {
                           </td>
                         )}
 
-                        {/* Type badge — one per type group, rowSpan = sub-rows of that type */}
+                        {/* Type badge � one per type group, rowSpan = sub-rows of that type */}
                         {isFirstOfType && (
                           <td rowSpan={rowCount} className={`ap-td-type ap-td-type-${type.toLowerCase()}`}>
                             <span className={`ap-type-badge ap-type-${type.toLowerCase()}`}>{type}</span>
@@ -1113,10 +1111,10 @@ const AllocationPage = ({ isAdmin = true }) => {
                         {/* Row number + main-faculty badge */}
                         <td className={`ap-td-rownum ap-rownum-${type.toLowerCase()}`}>
                           <span className="ap-rownum">R{rowIdx + 1}</span>
-                          {isMainL && <span className="ap-main-badge">★ Main</span>}
+                          {isMainL && <span className="ap-main-badge">? Main</span>}
                         </td>
 
-                        {/* Faculty cells — one per section */}
+                        {/* Faculty cells � one per section */}
                         {sections.map((section, si) => {
                           const empId = allocMap[`${course.id}__${section}__${type}__${rowIdx}`] || '';
                           const auto  = isAutoFilled(course.id, section, type, rowIdx);
@@ -1177,11 +1175,12 @@ const AllocationPage = ({ isAdmin = true }) => {
         )}
       </div>
 
-      {saving && <div className="ap-saving-indicator">Saving…</div>}
-      {workloadsLoading && <div className="ap-saving-indicator">Syncing workloads…</div>}
+      {saving && <div className="ap-saving-indicator">Saving�</div>}
+      {workloadsLoading && <div className="ap-saving-indicator">Syncing workloads�</div>}
       {toast  && <div className="ap-toast">{toast}</div>}
     </div>
   );
 };
 
 export default AllocationPage;
+

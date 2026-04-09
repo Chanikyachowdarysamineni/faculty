@@ -25,7 +25,7 @@ const ExtraFacultyPage = () => {
     try {
       const headers = authJsonHeaders();
       const [wRes] = await Promise.all([
-        fetchAllPages('/api/workloads', {}, { headers }),
+        fetchAllPages('/deva/workloads', {}, { headers }),
       ]);
       setWorkloads(wRes.success ? (wRes.data || []) : []);
       if (!wRes.success) {
@@ -170,3 +170,4 @@ const ExtraFacultyPage = () => {
 };
 
 export default ExtraFacultyPage;
+

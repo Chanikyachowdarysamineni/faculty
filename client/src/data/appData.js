@@ -57,3 +57,4 @@ export const getCoursesByDept = () => {
   return programs.map(p => ({ department: p, count: courses.filter(c => c.program === p).length }));
 };
 
+

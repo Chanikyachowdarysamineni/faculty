@@ -72,7 +72,7 @@ const MySubmissionsPage = ({
     setSaving(true);
     setApiError('');
     try {
-      const res  = await fetch(`${API}/api/submissions/by-faculty/${currentUser.id}`, {
+      const res  = await fetch(`${API}/deva/submissions/by-faculty/${currentUser.id}`, {
         method: 'PUT', headers: authHeaders(),
         body: JSON.stringify({ prefs: filled.map(Number) }),
       });
@@ -324,3 +324,4 @@ const MySubmissionsPage = ({
 };
 
 export default MySubmissionsPage;
+

@@ -296,3 +296,4 @@ const SectionManagementPage = () => {
 };
 
 export default SectionManagementPage;
+

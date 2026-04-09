@@ -11,6 +11,7 @@
 'use strict';
 
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
 const Faculty  = require('../models/Faculty');
 const Workload = require('../models/Workload');
@@ -120,6 +121,34 @@ router.post(
         mobile,
         email,
       });
+
+      // ── Create User account for faculty with mobile as password ──
+      if (mobile && mobile.trim()) {
+        try {
+          const passwordHash = bcrypt.hashSync(mobile.trim(), 10);
+          await User.findOneAndUpdate(
+            { empId: empId.trim() },
+            {
+              $set: {
+                empId: empId.trim(),
+                name: name.trim(),
+                designation: designation.trim(),
+                mobile: mobile.trim(),
+                email: email.trim(),
+                passwordHash,
+                role: 'faculty',
+                canAccessAdmin: false,
+              }
+            },
+            { upsert: true, new: true, runValidators: true }
+          );
+          logger.info('User account created for faculty', { empId: doc.empId });
+        } catch (userErr) {
+          logger.warn('Failed to create user account for faculty', { empId: doc.empId, error: userErr.message });
+          // Don't fail the faculty creation if user account creation fails
+        }
+      }
+
       await logAuditEvent({ req, action: 'faculty.create', entity: 'faculty', entityId: doc.empId });
       logger.info('Faculty created', { empId: doc.empId, name: doc.name, userId: req.user.id });
       sendCreated(res, toClient(doc));
@@ -202,6 +231,34 @@ router.put(
       if (!doc) {
         logger.warn('Faculty member not found for update', { empId, userId: req.user.id });
         return sendNotFound(res, 'Faculty member not found.');
+      }
+
+      // ── Update User account if mobile or other fields changed ──
+      if (allowedUpdates.mobile || allowedUpdates.name || allowedUpdates.designation || allowedUpdates.email) {
+        try {
+          const userUpdates = {};
+          if (allowedUpdates.name) userUpdates.name = allowedUpdates.name;
+          if (allowedUpdates.designation) userUpdates.designation = allowedUpdates.designation;
+          if (allowedUpdates.email) userUpdates.email = allowedUpdates.email;
+          
+          // If mobile changed, re-hash it as password
+          if (allowedUpdates.mobile && allowedUpdates.mobile.trim()) {
+            userUpdates.mobile = allowedUpdates.mobile;
+            userUpdates.passwordHash = bcrypt.hashSync(allowedUpdates.mobile.trim(), 10);
+          }
+
+          if (Object.keys(userUpdates).length > 0) {
+            await User.findOneAndUpdate(
+              { empId },
+              { $set: userUpdates },
+              { new: true, runValidators: true }
+            );
+            logger.info('User account updated for faculty', { empId, changes: Object.keys(userUpdates) });
+          }
+        } catch (userErr) {
+          logger.warn('Failed to update user account for faculty', { empId, error: userErr.message });
+          // Don't fail the faculty update if user account update fails
+        }
       }
 
       await logAuditEvent({ req, action: 'faculty.update', entity: 'faculty', entityId: empId, metadata: { fields: Object.keys(allowedUpdates), isSelfEdit: isSelf } });

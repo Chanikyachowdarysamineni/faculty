@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Faculty Workload - CSE",
+    "slug": "faculty-workload-cse-mobile",
+    "version": "1.0.0",
+    "description": "CSE Faculty Workload Management System - Mobile App",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTabletMode": true,
+      "bundleIdentifier": "com.cse.facultyworkload",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
+    },
+    "android": {
+      "package": "com.cse.facultyworkload",
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ]
+    },
+    "extra": {
+      "eas": {
+        "projectId": "faculty-workload-cse-mobile"
+      }
+    }
+  }
+}

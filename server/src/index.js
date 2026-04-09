@@ -12,6 +12,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
 const express      = require('express');
 const cors         = require('cors');
 const morgan       = require('morgan');
+const helmet       = require('helmet');
 const rateLimit    = require('express-rate-limit');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -104,14 +105,37 @@ const baselineAllowedOrigins = [
   'https://faculty-workload-management.onrender.com',
   'https://wlm-client.onrender.com',
   'https://faculty-workload-management-1.onrender.com',
+  // Production server
+  'http://160.187.169.41',
+  'https://160.187.169.41',
   // Always allow localhost for local development (all routes require JWT auth anyway)
   'http://localhost:3000',
   'http://localhost:3001',
+  'http://localhost:3002',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:3001',
+  'http://127.0.0.1:3002',
 ];
 
 const allowedOrigins = Array.from(new Set([...configuredOrigins, ...baselineAllowedOrigins]));
+
+// ── Helmet Security Middleware ────────────────────────────
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+}));
+
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
@@ -120,37 +144,6 @@ app.use(cors({
   credentials: true,
 }));
 app.set('trust proxy', 1);
-
-// ── Security Headers Middleware ────────────────────────────
-app.use((req, res, next) => {
-  // Prevent MIME-type sniffing
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  
-  // Clickjacking protection (deny embedding in frames)
-  res.setHeader('X-Frame-Options', 'DENY');
-  
-  // XSS protection
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  
-  // HTTPS enforcement in production
-  if (process.env.NODE_ENV === 'production') {
-    res.setHeader(
-      'Strict-Transport-Security',
-      'max-age=31536000; includeSubDomains; preload'
-    );
-  }
-  
-  // Content Security Policy
-  res.setHeader(
-    'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;"
-  );
-  
-  // Referrer Policy
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  
-  next();
-});
 
 // ── Redirect HTTP to HTTPS in Production ───────────────────
 if (process.env.NODE_ENV === 'production') {
@@ -196,17 +189,17 @@ const strictLimiter = rateLimit({
 });
 
 // Apply general limiter to all API routes
-app.use('/api/', apiLimiter);
+app.use('/deva/', apiLimiter);
 
 // Apply strict limiter to sensitive endpoints (add more as needed)
-app.use('/api/workloads', (req, res, next) => {
+app.use('/deva/workloads', (req, res, next) => {
   if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
     return strictLimiter(req, res, next);
   }
   next();
 });
 
-app.use('/api/faculty', (req, res, next) => {
+app.use('/deva/faculty', (req, res, next) => {
   if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
     return strictLimiter(req, res, next);
   }
@@ -214,7 +207,7 @@ app.use('/api/faculty', (req, res, next) => {
 });
 
 // ── Health check ───────────────────────────────────────────
-app.get('/api/health', (_req, res) => {
+app.get('/deva/health', (_req, res) => {
   res.json({
     success: true,
     message: 'WLM API is running',
@@ -223,15 +216,15 @@ app.get('/api/health', (_req, res) => {
 });
 
 // ── API routes ─────────────────────────────────────────────
-app.use('/api/auth',        authRoutes);
-app.use('/api/faculty',     facultyRoutes);
-app.use('/api/courses',     coursesRoutes);
-app.use('/api/submissions', submissionsRoutes);
-app.use('/api/workloads',   workloadsRoutes);
-app.use('/api/settings',    settingsRoutes);
-app.use('/api/stats',       statsRoutes);
-app.use('/api/allocations', allocationsRoutes);
-app.use('/api/audit-logs',  auditLogsRoutes);
+app.use('/deva/auth',        authRoutes);
+app.use('/deva/faculty',     facultyRoutes);
+app.use('/deva/courses',     coursesRoutes);
+app.use('/deva/submissions', submissionsRoutes);
+app.use('/deva/workloads',   workloadsRoutes);
+app.use('/deva/settings',    settingsRoutes);
+app.use('/deva/stats',       statsRoutes);
+app.use('/deva/allocations', allocationsRoutes);
+app.use('/deva/audit-logs',  auditLogsRoutes);
 
 // ── 404 handler ────────────────────────────────────────────
 app.use((_req, res) => {
@@ -313,12 +306,13 @@ process.on('uncaughtException', (err) => {
 
   const server = app.listen(PORT, () => {
     console.log(`\n✅  WLM Server running on http://localhost:${PORT}`);
-    console.log(`   Auth:        POST http://localhost:${PORT}/api/auth/login`);
-    console.log(`   Faculty:     GET  http://localhost:${PORT}/api/faculty`);
-    console.log(`   Courses:     GET  http://localhost:${PORT}/api/courses`);
-    console.log(`   Submissions: GET  http://localhost:${PORT}/api/submissions`);
-    console.log(`   Workloads:   GET  http://localhost:${PORT}/api/workloads`);
-    console.log(`   Stats:       GET  http://localhost:${PORT}/api/stats\n`);
+    console.log(`   Auth:        POST http://localhost:${PORT}/deva/auth/login`);
+    console.log(`   Faculty:     GET  http://localhost:${PORT}/deva/faculty`);
+    console.log(`   Courses:     GET  http://localhost:${PORT}/deva/courses`);
+    console.log(`   Submissions: GET  http://localhost:${PORT}/deva/submissions`);
+    console.log(`   Workloads:   GET  http://localhost:${PORT}/deva/workloads`);
+    console.log(`   Stats:       GET  http://localhost:${PORT}/deva/stats`);
+    console.log(`   Health:      GET  http://localhost:${PORT}/deva/health\n`);
   });
 
   // Render's load balancer holds connections for 75 s+; Node defaults to 5 s,

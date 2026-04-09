@@ -353,3 +353,4 @@ describe('Toast Notifications', () => {
     expect(canDismiss).toBe(true);
   });
 });
+

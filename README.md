@@ -2,11 +2,47 @@
 
 A comprehensive web application for managing faculty workload allocation, course assignments, and workload preferences.
 
-## Quick Setup Guide
+## ⚡ Quick Start with Docker
+
+**Fastest way to get running:**
+
+```bash
+# 1. Start all services
+docker-compose up -d
+
+# 2. Backend runs on http://localhost:5000
+# 3. MongoDB on localhost:27017
+# 4. Mongo Express (optional UI) on http://localhost:8081
+```
+
+**For detailed Docker setup, see [DOCKER_SETUP.md](DOCKER_SETUP.md) and [DOCKER_COMPLETE.md](DOCKER_COMPLETE.md)**
+
+### Available Scripts
+
+```bash
+# Using Make (Linux/Mac)
+make up                 # Start services
+make logs              # Show logs
+make health            # Check health
+make down              # Stop services
+
+# Using Shell Scripts (All platforms)
+./start-docker.sh up   # Windows: start-docker.bat up
+./start-docker.sh logs
+
+# Or Docker Compose directly
+docker-compose ps
+docker-compose logs -f wlm-server
+```
+
+---
+
+## Quick Setup Guide (Manual Setup)
 
 ### Prerequisites
 - Node.js 14+ 
 - MongoDB URI (from MongoDB Atlas or local instance)
+- *OR* Docker Desktop (for containerized setup above)
 
 ### Installation & Running
 

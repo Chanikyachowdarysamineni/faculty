@@ -40,7 +40,7 @@ const MyWorkloadPage = ({ currentUser }) => {
     setApiError('');
     try {
       const params = currentUser?.id ? { empId: String(currentUser.id) } : {};
-      const data = await fetchAllPages('/api/workloads', params, { headers: authHeader() });
+      const data = await fetchAllPages('/deva/workloads', params, { headers: authHeader() });
       if (!data.success) {
         const msg = data.message || 'Failed to load workloads.';
         setApiError(msg);
@@ -271,3 +271,4 @@ const MyWorkloadPage = ({ currentUser }) => {
 };
 
 export default MyWorkloadPage;
+

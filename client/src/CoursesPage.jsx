@@ -72,6 +72,11 @@ const CoursesPage = ({ isAdmin = true }) => {
     );
   }, [courseList, activeProgram, activeYear, search]);
 
+  // Filter to show only B.Tech by default (remove M.Tech display)
+  const displayCourses = useMemo(() => {
+    return filteredCourses;
+  }, [filteredCourses]);
+
 
 
   // ── Course CRUD handlers ──
@@ -119,7 +124,7 @@ const CoursesPage = ({ isAdmin = true }) => {
     };
     try {
       const res = await fetch(
-        editCourse ? `${API}/api/courses/${editCourse.id}` : `${API}/api/courses`,
+        editCourse ? `${API}/deva/courses/${editCourse.id}` : `${API}/deva/courses`,
         {
           method: editCourse ? 'PUT' : 'POST',
           headers: authHeaders(),
@@ -141,7 +146,7 @@ const CoursesPage = ({ isAdmin = true }) => {
 
   const confirmDeleteCourse = async () => {
     try {
-      const res = await fetch(`${API}/api/courses/${deleteCourse.id}`, {
+      const res = await fetch(`${API}/deva/courses/${deleteCourse.id}`, {
         method: 'DELETE',
         headers: authHeaders(),
       });
@@ -193,42 +198,29 @@ const CoursesPage = ({ isAdmin = true }) => {
             />
             {search && <button className="cp-search-clear" onClick={() => setSearch('')}>✕</button>}
           </div>
+          {isAdmin && (
           <div className="cp-export-buttons">
             <button 
               className="cp-btn cp-export-csv"
               onClick={() => {
                 try {
                   exportCoursesList(courseList);
-                  showToast('Courses exported as CSV');
                 } catch (err) {
                   showToast('Failed to export CSV');
                 }
               }}
-              title="Export as CSV"
+              title="Download full course list as CSV"
             >
-              📥 CSV
-            </button>
-            <button 
-              className="cp-btn cp-export-excel"
-              onClick={() => {
-                try {
-                  exportCoursesListExcel(courseList);
-                  showToast('Courses exported as Excel');
-                } catch (err) {
-                  showToast('Failed to export Excel');
-                }
-              }}
-              title="Export as Excel"
-            >
-              📊 Excel
+              📥 Download
             </button>
           </div>
+          )}
         </div>
       </div>
 
-      {/* ── Program tabs ── */}
+      {/* ── Program tabs ── B.Tech only */}
       <div className="cp-program-tabs">
-        {PROGRAMS.map(p => (
+        {PROGRAMS.filter(p => p === 'B.Tech').map(p => (
           <button
             key={p}
             className={`cp-prog-tab${activeProgram === p ? ' active' : ''}`}
@@ -246,7 +238,7 @@ const CoursesPage = ({ isAdmin = true }) => {
       {activeProgram === 'B.Tech' && (
         <div className="cp-year-tabs">
           {YEARS_BTECH.map(y => {
-            const cnt = courseList.filter(
+            const cnt = displayCourses.filter(
               c => c.program === 'B.Tech' && c.year === y
             ).length;
             return (
@@ -303,7 +295,7 @@ const CoursesPage = ({ isAdmin = true }) => {
               </tr>
             </thead>
             <tbody>
-              {filteredCourses.length === 0 ? (
+              {displayCourses.length === 0 ? (
                 <tr><td colSpan={colCount} className="cp-td-empty">No courses found for {activeProgram === 'B.Tech' ? `${activeYear} Year` : 'M.Tech'}</td></tr>
               ) : filteredCourses.map((c, i) => (
                 <tr key={c.id} className={i % 2 === 0 ? 'cp-tr-even' : 'cp-tr-odd'}>
@@ -474,3 +466,4 @@ const CoursesPage = ({ isAdmin = true }) => {
 };
 
 export default CoursesPage;
+

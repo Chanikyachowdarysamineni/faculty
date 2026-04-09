@@ -5,10 +5,10 @@ describe('Frontend Utility Functions', () => {
   describe('API Utilities', () => {
     test('should construct API endpoint correctly', () => {
       const apiUrl = 'http://localhost:5000';
-      const endpoint = '/api/faculty';
+      const endpoint = '/csefaculty/faculty';
       const fullUrl = `${apiUrl}${endpoint}`;
       
-      expect(fullUrl).toBe('http://localhost:5000/api/faculty');
+      expect(fullUrl).toBe('http://localhost:5000/csefaculty/faculty');
     });
 
     test('should handle query parameters', () => {
@@ -385,3 +385,4 @@ describe('Frontend Utility Functions', () => {
     });
   });
 });
+

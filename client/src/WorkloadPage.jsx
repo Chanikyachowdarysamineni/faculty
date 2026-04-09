@@ -19,15 +19,13 @@ const YEAR_SECTIONS = {
   'II':     Array.from({ length: 22 }, (_, i) => String(i + 1)),
   'III':    Array.from({ length: 19 }, (_, i) => String(i + 1)),
   'IV':     Array.from({ length:  9 }, (_, i) => String(i + 1)),
-  'M.Tech': ['1', '2'],
 };
-const YEARS = ['I', 'II', 'III', 'IV', 'M.Tech'];
+const YEARS = ['I', 'II', 'III', 'IV'];
 const YEAR_OPTIONS = [
   { value: 'I', label: 'I Year' },
   { value: 'II', label: 'II Year' },
   { value: 'III', label: 'III Year' },
   { value: 'IV', label: 'IV Year' },
-  { value: 'M.Tech', label: 'M.Tech' },
   { value: '__other__', label: 'Others' },
 ];
 const COURSE_TYPES = ['Mandatory', 'Department Elective', 'Open Elective', 'Minors', 'Honours'];
@@ -125,7 +123,7 @@ const WorkloadPage = ({ submissions }) => {
     const fetchAllocation = async () => {
       setAllocLoading(true);
       try {
-        const res = await fetch(`${API}/api/allocations?courseId=${form.courseId}&year=${encodeURIComponent(form.year)}&section=${encodeURIComponent(form.section)}`, { headers: authHeader() });
+        const res = await fetch(`${API}/deva/allocations?courseId=${form.courseId}&year=${encodeURIComponent(form.year)}&section=${encodeURIComponent(form.section)}`, { headers: authHeader() });
         const data = await res.json();
         if (data.success && Array.isArray(data.data) && data.data.length > 0) {
           setAllocation(data.data[0]);
@@ -157,7 +155,7 @@ const WorkloadPage = ({ submissions }) => {
     if (withLoader) setLoading(true);
     setFetchError('');
     try {
-      const data = await fetchAllPages('/api/workloads', {}, { headers: authHeader() });
+      const data = await fetchAllPages('/deva/workloads', {}, { headers: authHeader() });
       if (data.success) {
         const normalized = (data.data || []).map(w => ({
           ...w,
@@ -298,7 +296,7 @@ const WorkloadPage = ({ submissions }) => {
     setWorkloadHoursLoading(true);
     setWorkloadHoursError('');
     try {
-      const res = await fetch(`${API}/api/workloads/faculty-hours/${empId}`, { 
+      const res = await fetch(`${API}/deva/workloads/faculty-hours/${empId}`, { 
         headers: authHeader() 
       });
       const data = await res.json();
@@ -547,13 +545,13 @@ const WorkloadPage = ({ submissions }) => {
 
       let res;
       if (editTarget) {
-        res = await fetch(`${API}/api/workloads/${editTarget.id}`, {
+        res = await fetch(`${API}/deva/workloads/${editTarget.id}`, {
           method:  'PUT',
           headers: { 'Content-Type': 'application/json', ...authHeader() },
           body:    JSON.stringify(payload),
         });
       } else {
-        res = await fetch(`${API}/api/workloads`, {
+        res = await fetch(`${API}/deva/workloads`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json', ...authHeader() },
           body:    JSON.stringify(payload),
@@ -590,7 +588,7 @@ const WorkloadPage = ({ submissions }) => {
   // ── Delete: calls server API ───────────────────────────
   const confirmDelete = async () => {
     try {
-      const res  = await fetch(`${API}/api/workloads/${deleteTarget.id}`, {
+      const res  = await fetch(`${API}/deva/workloads/${deleteTarget.id}`, {
         method: 'DELETE', headers: authHeader(),
       });
       const data = await res.json();
@@ -642,11 +640,10 @@ const WorkloadPage = ({ submissions }) => {
   const filtered = useMemo(() => {
     let list = workloads;
     if (activeYear !== 'All') {
-      if (activeYear === 'M.Tech') {
-        list = list.filter(w => w.year === 'M.Tech');
-      } else {
-        list = list.filter(w => w.year === activeYear);
-      }
+      list = list.filter(w => w.year === activeYear);
+    } else {
+      // When "All" is selected, exclude M.Tech courses
+      list = list.filter(w => w.year !== 'M.Tech');
     }
     if (filterEmp) list = list.filter(w => w.empId === filterEmp);
     const q = search.toLowerCase();
@@ -1244,13 +1241,13 @@ const WorkloadPage = ({ submissions }) => {
       )}
 
       {/* ════════════════════════════════════════════════
-          YEAR-WISE TABS
+          YEAR-WISE TABS (B.Tech only)
       ════════════════════════════════════════════════ */}
       {workloads.length > 0 && (
         <div className="wl-year-tabs">
-          {['All', 'I', 'II', 'III', 'IV', 'M.Tech'].map(y => {
+          {['All', 'I', 'II', 'III', 'IV'].map(y => {
             const count = y === 'All'
-              ? workloads.length
+              ? workloads.filter(w => w.year !== 'M.Tech').length
               : workloads.filter(w => w.year === y).length;
             return (
               <button
@@ -1258,7 +1255,7 @@ const WorkloadPage = ({ submissions }) => {
                 className={`wl-year-tab${activeYear === y ? ' wl-year-tab-active' : ''}`}
                 onClick={() => setActiveYear(y)}
               >
-                {y === 'All' ? '📋 All Years' : y === 'M.Tech' ? '🎓 M.Tech' : `${y} Year`}
+                {y === 'All' ? '📋 All Years' : `${y} Year`}
                 {count > 0 && <span className="wl-year-tab-badge">{count}</span>}
               </button>
             );
@@ -1549,3 +1546,4 @@ const WorkloadPage = ({ submissions }) => {
 };
 
 export default WorkloadPage;
+

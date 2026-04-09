@@ -363,6 +363,24 @@
 }
 .fp-form-group input:disabled { opacity: 0.55; cursor: not-allowed; }
 
+.fp-form-group select {
+  padding: 9px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  font-size: 13px;
+  font-family: 'Poppins', sans-serif;
+  color: #1a202c;
+  outline: none;
+  transition: border-color 0.18s, box-shadow 0.18s;
+  cursor: pointer;
+}
+.fp-form-group select:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+  background: #fff;
+}
+
 .fp-modal-actions {
   display: flex;
   justify-content: flex-end;

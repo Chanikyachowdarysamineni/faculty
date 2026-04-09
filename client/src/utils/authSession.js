@@ -12,3 +12,4 @@ export const notifyUnauthorized = () => {
   clearAuthSession();
   window.dispatchEvent(new CustomEvent('wlm:unauthorized'));
 };
+

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import FacultyPage          from './FacultyPage';
 import CoursesPage          from './CoursesPage';
 import SectionManagementPage from './SectionManagementPage';
@@ -201,7 +201,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // â”€â”€ Shared state across pages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Shared state across pages ──────────────────
   const [formEnabled,  setFormEnabled]  = useState(true);
   const [editEnabled,  setEditEnabled]  = useState(true);
   const [submissions,  setSubmissions]  = useState([]);
@@ -244,7 +244,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
 
     if (isAdmin) {
       try {
-        const data = await fetchAllPages('/api/submissions', {}, { headers });
+        const data = await fetchAllPages('/deva/submissions', {}, { headers });
         if (!data.success) {
           setSubmissionsSyncError(data.message || 'Failed to refresh submissions.');
           return;
@@ -259,13 +259,13 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
     }
 
     try {
-      const result = await fetchJsonWithRetry(`${API}/api/submissions/by-faculty/${user.id}`, { 
+      const result = await fetchJsonWithRetry(`${API}/deva/submissions/by-faculty/${user.id}`, { 
         headers,
         silentMode: true // Suppress logs for expected 404 (no submission yet)
       });
       const data = result.data || {};
       
-      // 404 is expected if the faculty hasn't submitted yet — just ignore it
+      // 404 is expected if the faculty hasn't submitted yet � just ignore it
       if (result.status === 404) {
         setSubmissions([]);
         setSubmissionsSyncError('');
@@ -293,8 +293,8 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
 
     const refreshSettings = async () => {
       const [formResult, editResult] = await Promise.all([
-        fetchJsonWithRetry(`${API}/api/settings/form-status`, { headers }),
-        fetchJsonWithRetry(`${API}/api/settings/edit-status`, { headers }),
+        fetchJsonWithRetry(`${API}/deva/settings/form-status`, { headers }),
+        fetchJsonWithRetry(`${API}/deva/settings/edit-status`, { headers }),
       ]);
       const formData = formResult.data || {};
       const editData = editResult.data || {};
@@ -330,9 +330,9 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
     setDashboardData(prev => ({ ...prev, loading: true, error: '' }));
     try {
       const [fReq, aReq, cReq] = await Promise.allSettled([
-        fetchAllPages('/api/faculty', {}, { headers: authHeaders() }),
-        fetchAllPages('/api/allocations', {}, { headers: authHeaders() }),
-        fetchAllPages('/api/courses', {}, { headers: authHeaders() }),
+        fetchAllPages('/deva/faculty', {}, { headers: authHeaders() }),
+        fetchAllPages('/deva/allocations', {}, { headers: authHeaders() }),
+        fetchAllPages('/deva/courses', {}, { headers: authHeaders() }),
       ]);
 
       const nextData = {};
@@ -412,8 +412,8 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
     if (!user?.id) return;
     try {
       const [fReq, cReq] = await Promise.allSettled([
-        fetchAllPages('/api/faculty', {}, { headers: authHeaders() }),
-        fetchAllPages('/api/courses', {}, { headers: authHeaders() }),
+        fetchAllPages('/deva/faculty', {}, { headers: authHeaders() }),
+        fetchAllPages('/deva/courses', {}, { headers: authHeaders() }),
       ]);
 
       const facultyOk = fReq.status === 'fulfilled' && fReq.value?.success;
@@ -481,7 +481,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
     setIntegrityLoading(true);
     setIntegrityError('');
     try {
-      const res = await fetch(`${API}/api/stats/integrity`, { headers: authHeaders() });
+      const res = await fetch(`${API}/deva/stats/integrity`, { headers: authHeaders() });
       const data = await res.json();
       if (data.success) {
         setIntegrityData(data.data);
@@ -513,7 +513,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
 
     if (mode === 'add') {
       if (!input.trim()) return;
-      const res = await fetch(`${API}/api/settings/sections/${encodeURIComponent(sectionYear)}`, {
+      const res = await fetch(`${API}/deva/settings/sections/${encodeURIComponent(sectionYear)}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ section: input.trim() }),
       });
       const data = await res.json();
@@ -525,7 +525,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
       setSharedSectionsConfig(data?.data || null);
     } else if (mode === 'rename') {
       if (!input.trim() || input.trim() === section) return;
-      const res = await fetch(`${API}/api/settings/sections/${encodeURIComponent(sectionYear)}/${encodeURIComponent(section)}`, {
+      const res = await fetch(`${API}/deva/settings/sections/${encodeURIComponent(sectionYear)}/${encodeURIComponent(section)}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ newSection: input.trim() }),
       });
       const data = await res.json();
@@ -536,7 +536,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
       setSectionsConfig(data?.data || null);
       setSharedSectionsConfig(data?.data || null);
     } else if (mode === 'delete') {
-      const res = await fetch(`${API}/api/settings/sections/${encodeURIComponent(sectionYear)}/${encodeURIComponent(section)}`, {
+      const res = await fetch(`${API}/deva/settings/sections/${encodeURIComponent(sectionYear)}/${encodeURIComponent(section)}`, {
         method: 'DELETE', headers: authHeaders(),
       });
       const data = await res.json();
@@ -546,7 +546,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
       }
     }
   };
-  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ───────────────────────────────────────────────
   const visibleNav = NAV_ITEMS.filter(item => {
     if (item.adminOnly)  return isAdmin;
     if (item.facultyOnly) return !isAdmin;
@@ -823,9 +823,9 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
 
   const stats = getMyStats;
 
-  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // Role picker â€” shown only for canAccessAdmin users before they choose
-  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─────────────────────────────────────────────────────────
+  // Role picker — shown only for canAccessAdmin users before they choose
+  // ─────────────────────────────────────────────────────────
   if (user.canAccessAdmin && dashMode === null) {
     const initials = user.name ? user.name.trim().split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() : 'U';
     return (
@@ -841,7 +841,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
             <img src="/logo.webp" alt="Logo" className="rp-brand-logo" />
             <div>
               <div className="rp-brand-name">Faculty Workload Management</div>
-              <div className="rp-brand-sub">Vignan Foundation For Science Technology & Research · CSE Department</div>
+              <div className="rp-brand-sub">Vignan Foundation For Science Technology & Research � CSE Department</div>
             </div>
           </div>
 
@@ -872,7 +872,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
                 <li><span className="rp-perk-dot rp-dot-admin" />Control Form &amp; Edit Access</li>
                 <li><span className="rp-perk-dot rp-dot-admin" />Workload Assignment</li>
               </ul>
-              <div className="rp-card-cta rp-cta-admin">Enter Admin Dashboard â†’</div>
+              <div className="rp-card-cta rp-cta-admin">Enter Admin Dashboard →</div>
             </button>
 
             {/* Faculty card */}
@@ -894,7 +894,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
                 <li><span className="rp-perk-dot rp-dot-faculty" />Edit Preferences (if enabled)</li>
                 <li><span className="rp-perk-dot rp-dot-faculty" />View Personal Profile</li>
               </ul>
-              <div className="rp-card-cta rp-cta-faculty">Enter Faculty Dashboard â†’</div>
+              <div className="rp-card-cta rp-cta-faculty">Enter Faculty Dashboard →</div>
             </button>
           </div>
 
@@ -1011,13 +1011,13 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
           </div>
         </aside>
 
-        {/* Mobile overlay â€” closes sidebar when tapping outside */}
+        {/* Mobile overlay — closes sidebar when tapping outside */}
         {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
 
         {/* Page content */}
         <div className="dash-page">
 
-      {activeNav === 'faculty'        ? <FacultyPage /> :
+      {activeNav === 'faculty'        ? <FacultyPage isAdmin={isAdmin} /> :
        activeNav === 'courses'        ? <CoursesPage isAdmin={isAdmin} /> :
        activeNav === 'sections'       ? <SectionManagementPage /> :
        activeNav === 'workload'       ? <WorkloadPage submissions={submissions} /> :
@@ -1051,7 +1051,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
          <ProfilePage user={user} submissions={submissions} onLogout={onLogout} />
        ) :
        activeNav === 'auditlogs'     ? <AuditLogPage /> :
-       /* â”€â”€ Dashboard overview â”€â”€ */
+       /* ── Dashboard overview ── */
        <main className="dash-main">
         <h1 className="dash-heading">
           {isAdmin ? 'Admin Overview' : `Welcome, ${user.name || 'Faculty'}`}
@@ -1079,8 +1079,8 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: remainingSeconds < 300 ? '16px' : '14px' }}>
               {remainingSeconds < 300 
-                ? '⏱️ Session ending soon' 
-                : '✅ Active session'}
+                ? '?? Session ending soon' 
+                : '? Active session'}
             </span>
           </span>
           <span style={{ 
@@ -1118,13 +1118,13 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
                 }
               }}
             >
-              ↻ Retry Sync
+              ? Retry Sync
             </button>
           </div>
 
           {(dashboardSyncError || submissionsSyncError) && (
             <div className="dash-live-warning dash-live-warning-row">
-              <span>⚠️ {dashboardSyncError || submissionsSyncError}</span>
+              <span>?? {dashboardSyncError || submissionsSyncError}</span>
               <button
                 className="dash-inline-retry"
                 onClick={() => {
@@ -1147,10 +1147,10 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
         )}
 
         {isAdmin && dashboardData.loading && (
-          <div className="dash-live-note">Refreshing dashboard data…</div>
+          <div className="dash-live-note">Refreshing dashboard data�</div>
         )}
 
-        {/* â”€â”€ Stat cards â”€â”€ */}
+        {/* ── Stat cards ── */}
         <div className="dash-cards">
           {stats.map((s) => (
             <div className="dash-card" key={s.label}>
@@ -1244,8 +1244,8 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
                   {dashboardComputed.facultySummary.map((f) => {
                     const color = f.statusTone === 'over' ? '#ef4444' : (f.statusTone === 'near' || f.statusTone === 'full' ? '#f59e0b' : '#22c55e');
                     const statusText = f.statusTone === 'over'
-                      ? '🔴 Overloaded'
-                      : (f.statusTone === 'near' || f.statusTone === 'full' ? '🟡 Near Capacity' : '🟢 Normal Load');
+                      ? '?? Overloaded'
+                      : (f.statusTone === 'near' || f.statusTone === 'full' ? '?? Near Capacity' : '?? Normal Load');
                     return (
                       <tr key={f.empId}>
                         <td>{f.name} ({f.empId})</td>
@@ -1275,7 +1275,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
                 <div className="dash-panel-list">
                   {dashboardComputed.availableFaculty.map(f => (
                     <div key={f.empId} className="dash-pill dash-pill-available">
-                      {f.name} ({f.empId}) • Remaining {f.remainingLoad}h
+                      {f.name} ({f.empId}) � Remaining {f.remainingLoad}h
                     </div>
                   ))}
                   {dashboardComputed.availableFaculty.length === 0 && <div className="dash-muted">No available faculty.</div>}
@@ -1299,7 +1299,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
                 <div className="dash-panel-list">
                   {dashboardComputed.pendingCourses.map(c => (
                     <div key={c.key} className="dash-pill dash-pill-pending">
-                      {c.courseName} [Sec {c.section}] → Missing {c.missingTypes.join(', ')} (L:{c.pendingByType.L} T:{c.pendingByType.T} P:{c.pendingByType.P})
+                      {c.courseName} [Sec {c.section}] ? Missing {c.missingTypes.join(', ')} (L:{c.pendingByType.L} T:{c.pendingByType.T} P:{c.pendingByType.P})
                     </div>
                   ))}
                   {dashboardComputed.pendingCourses.length === 0 && <div className="dash-muted">All course sections are fully allocated.</div>}
@@ -1336,17 +1336,17 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
                       background: Object.values(integrityData.summary || {}).some(v => v > 0) ? '#fee2e2' : '#dcfce7',
                       color: Object.values(integrityData.summary || {}).some(v => v > 0) ? '#b91c1c' : '#16a34a',
                     }}>
-                      {Object.values(integrityData.summary || {}).every(v => v === 0) ? '✓ No issues' : '⚠ Issues found'}
+                      {Object.values(integrityData.summary || {}).every(v => v === 0) ? '? No issues' : '? Issues found'}
                     </span>
                   )}
                   <button className="dash-sec-btn" onClick={fetchIntegrity} disabled={integrityLoading} style={{ padding: '4px 10px', fontSize: '0.8rem' }}>
-                    {integrityLoading ? 'Checking…' : '↻ Check Now'}
+                    {integrityLoading ? 'Checking�' : '? Check Now'}
                   </button>
                 </div>
               </div>
               <div className="dash-alert-wrap" style={{ padding: '12px 16px' }}>
                 {integrityError && <div className="dash-live-warning" style={{ marginBottom: 8 }}>{integrityError}</div>}
-                {integrityLoading && !integrityData && <div className="dash-live-note">Running integrity checks…</div>}
+                {integrityLoading && !integrityData && <div className="dash-live-note">Running integrity checks�</div>}
                 {integrityData && (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
                     {[
@@ -1394,8 +1394,8 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
                   {(sectionsConfig?.[sectionYear] || []).map((section) => (
                     <div key={section} className="dash-sec-pill">
                       {section}
-                      <button className="dash-sec-icon" onClick={() => openRenameSection(section)}>✎</button>
-                      <button className="dash-sec-icon dash-sec-icon-del" onClick={() => openDeleteSection(section)}>✕</button>
+                      <button className="dash-sec-icon" onClick={() => openRenameSection(section)}>?</button>
+                      <button className="dash-sec-icon dash-sec-icon-del" onClick={() => openDeleteSection(section)}>?</button>
                     </div>
                   ))}
                 </div>
@@ -1411,7 +1411,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
               {/* Available Courses */}
               <div className="faculty-compact-card">
                 <div className="faculty-compact-header">
-                  <span className="faculty-compact-title">📚 Available</span>
+                  <span className="faculty-compact-title">?? Available</span>
                 </div>
                 <div className="faculty-compact-value" style={{ color: '#3b82f6' }}>
                   {liveCourses.length}
@@ -1422,10 +1422,10 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
               {/* Faculty Form */}
               <div className="faculty-compact-card">
                 <div className="faculty-compact-header">
-                  <span className="faculty-compact-title">📝 Form</span>
+                  <span className="faculty-compact-title">?? Form</span>
                 </div>
                 <div className="faculty-compact-value" style={{ color: formEnabled ? '#8b5cf6' : '#d1d5db' }}>
-                  {formEnabled ? '✓ Open' : '✕ Closed'}
+                  {formEnabled ? '? Open' : '? Closed'}
                 </div>
                 <div className="faculty-compact-label">Status</div>
               </div>
@@ -1433,7 +1433,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
               {/* My Workload */}
               <div className="faculty-compact-card">
                 <div className="faculty-compact-header">
-                  <span className="faculty-compact-title">📊 Workload</span>
+                  <span className="faculty-compact-title">?? Workload</span>
                 </div>
                 <div className="faculty-compact-value" style={{ color: '#f97316' }}>
                   {dashboardComputed.totalFacultyHours || 0}
@@ -1444,7 +1444,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
               {/* My Submissions */}
               <div className="faculty-compact-card">
                 <div className="faculty-compact-header">
-                  <span className="faculty-compact-title">✅ Submissions</span>
+                  <span className="faculty-compact-title">? Submissions</span>
                 </div>
                 <div className="faculty-compact-value" style={{ color: '#a855f7' }}>
                   {submissions.length}
@@ -1456,7 +1456,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
             {/* System Information */}
             <div className="faculty-dashboard-card">
               <div className="faculty-dashboard-header">
-                <span className="faculty-dashboard-title">👤 System Information</span>
+                <span className="faculty-dashboard-title">?? System Information</span>
               </div>
               <div className="dash-alert-wrap">
                 <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 16px', fontSize: '0.9rem', color: '#666', padding: '12px 16px' }}>
@@ -1467,9 +1467,9 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
                   <span><strong>Role:</strong></span>
                   <span>Faculty</span>
                   <span><strong>Form Status:</strong></span>
-                  <span>{formEnabled ? '🟢 Open' : '🔴 Closed'}</span>
+                  <span>{formEnabled ? '?? Open' : '?? Closed'}</span>
                   <span><strong>Edit Status:</strong></span>
-                  <span>{editEnabled ? '🟢 Allowed' : '🔴 Not Allowed'}</span>
+                  <span>{editEnabled ? '?? Allowed' : '?? Not Allowed'}</span>
                 </div>
               </div>
             </div>
@@ -1478,17 +1478,17 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
       </main>}
         </div>{/* end dash-page */}
       </div>{/* end dash-layout */}
-      {/* ── Section management modal ── */}
+      {/* -- Section management modal -- */}
       {sectionModal && (
         <div className="cp-overlay" onClick={closeSectionModal}>
           <div className="cp-modal cp-modal-sm" onClick={e => e.stopPropagation()} style={{ maxWidth: 380 }}>
             <div className="cp-modal-head">
               <h3>
-                {sectionModal.mode === 'add' && `Add Section — ${sectionYear}`}
+                {sectionModal.mode === 'add' && `Add Section � ${sectionYear}`}
                 {sectionModal.mode === 'rename' && `Rename Section '${sectionModal.section}'`}
                 {sectionModal.mode === 'delete' && `Delete Section '${sectionModal.section}'`}
               </h3>
-              <button className="cp-modal-x" onClick={closeSectionModal}>✕</button>
+              <button className="cp-modal-x" onClick={closeSectionModal}>?</button>
             </div>
             <div className="cp-modal-body">
               {sectionModal.mode === 'delete' ? (
@@ -1500,7 +1500,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
                   autoFocus
                   className="cp-input"
                   style={{ width: '100%', boxSizing: 'border-box' }}
-                  placeholder={sectionModal.mode === 'add' ? 'Section name / number…' : 'New section name…'}
+                  placeholder={sectionModal.mode === 'add' ? 'Section name / number�' : 'New section name�'}
                   value={sectionModal.input}
                   onChange={e => setSectionModal(prev => ({ ...prev, input: e.target.value }))}
                   onKeyDown={e => { if (e.key === 'Enter') confirmSectionModal(); if (e.key === 'Escape') closeSectionModal(); }}
@@ -1524,4 +1524,5 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
 };
 
 export default Dashboard;
+
 

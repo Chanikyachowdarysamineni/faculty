@@ -51,7 +51,7 @@ const ProfilePage = ({ user, submissions = [], onLogout }) => {
       const headers = authHeaders();
       const workloadParams = user.role === 'admin' ? {} : { empId: String(user.id) };
       const [wData] = await Promise.all([
-        fetchAllPages('/api/workloads', workloadParams, { headers }),
+        fetchAllPages('/deva/workloads', workloadParams, { headers }),
       ]);
 
       if (!wData.success) {
@@ -134,7 +134,7 @@ const ProfilePage = ({ user, submissions = [], onLogout }) => {
 
       console.log('Saving profile changes with payload:', { payload, userId: user.id });
 
-      const response = await fetch(`${API}/api/faculty/${user.id}`, {
+      const response = await fetch(`${API}/deva/faculty/${user.id}`, {
         method: 'PUT',
         headers: authHeaders(),
         body: JSON.stringify(payload),
@@ -521,7 +521,7 @@ const ProfilePage = ({ user, submissions = [], onLogout }) => {
               setPwSaving(true);
               try {
                 console.log('Sending password change request...');
-                const res = await fetch(`${API}/api/auth/change-password`, {
+                const res = await fetch(`${API}/deva/auth/change-password`, {
                   method: 'PUT',
                   headers: { 'Content-Type': 'application/json', ...authHeaders() },
                   body: JSON.stringify({ 
@@ -591,7 +591,7 @@ const ProfilePage = ({ user, submissions = [], onLogout }) => {
               try {
                 console.log('Logging out...');
                 // Call logout endpoint to clear session
-                await fetch(`${API}/api/auth/logout`, {
+                await fetch(`${API}/deva/auth/logout`, {
                   method: 'POST',
                   headers: authHeaders(),
                 });
@@ -712,3 +712,4 @@ const ProfilePage = ({ user, submissions = [], onLogout }) => {
 };
 
 export default ProfilePage;
+

@@ -238,3 +238,4 @@ export const printData = (title, data) => {
   printWindow.document.close();
   printWindow.print();
 };
+

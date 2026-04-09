@@ -29,7 +29,7 @@ export const fetchSectionsConfig = async () => {
     }
   }
 
-  const result = await fetchJsonWithRetry(`${API}/api/settings/sections`, { headers: authHeader() });
+  const result = await fetchJsonWithRetry(`${API}/deva/settings/sections`, { headers: authHeader() });
   const data = result.data || {};
   if (result.status === 404) {
     sectionsEndpointUnavailable = true;
@@ -43,22 +43,23 @@ export const fetchSectionsConfig = async () => {
 };
 
 export const addSectionConfig = async (year, section) => {
-  const res = await fetch(`${API}/api/settings/sections/${encodeURIComponent(year)}`, {
+  const res = await fetch(`${API}/deva/settings/sections/${encodeURIComponent(year)}`, {
     method: 'POST', headers: authHeader(), body: JSON.stringify({ section }),
   });
   return res.json();
 };
 
 export const renameSectionConfig = async (year, oldSection, newSection) => {
-  const res = await fetch(`${API}/api/settings/sections/${encodeURIComponent(year)}/${encodeURIComponent(oldSection)}`, {
+  const res = await fetch(`${API}/deva/settings/sections/${encodeURIComponent(year)}/${encodeURIComponent(oldSection)}`, {
     method: 'PUT', headers: authHeader(), body: JSON.stringify({ newSection }),
   });
   return res.json();
 };
 
 export const deleteSectionConfig = async (year, section) => {
-  const res = await fetch(`${API}/api/settings/sections/${encodeURIComponent(year)}/${encodeURIComponent(section)}`, {
+  const res = await fetch(`${API}/deva/settings/sections/${encodeURIComponent(year)}/${encodeURIComponent(section)}`, {
     method: 'DELETE', headers: authHeader(),
   });
   return res.json();
 };
+

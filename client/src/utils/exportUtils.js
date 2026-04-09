@@ -56,3 +56,4 @@ export const exportAsPDF = ({ fileName, title, columns, rows }) => {
   });
   doc.save(fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
 };
+

@@ -1,0 +1,72 @@
+version: '3.9'
+
+# Backend-Only Docker Compose for Production
+# Database is assumed to run separately (MongoDB Atlas or external DB)
+# Usage: docker-compose -f server/docker-compose.yml up -d
+
+services:
+  wlm-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    container_name: wlm-server-prod
+    
+    # Environment Configuration
+    env_file:
+      - .env.production
+    
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      # Ensure MongoDB connection is external
+      # MONGO_URI should be set in .env.production pointing to external DB
+    
+    # Port Mapping
+    ports:
+      - "5000:5000"
+    
+    # Health Check
+    healthcheck:
+      test: ["GET", "/deva/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Restart Policy
+    restart: unless-stopped
+    
+    # Resource Limits (Production)
+    resources:
+      limits:
+        cpus: '2'
+        memory: 1G
+      reservations:
+        cpus: '1'
+        memory: 512M
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Network
+    networks:
+      - wlm-network
+    
+    # Labels for container management
+    labels:
+      app: "wlm-backend"
+      env: "production"
+      version: "1.0.0"
+
+# Network for backend communication
+networks:
+  wlm-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
