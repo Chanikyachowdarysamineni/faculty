@@ -276,7 +276,7 @@ function App() {
   }, [handleLogout]);
 
   return (
-    <Router basename="/csefaculty">
+    <Router basename={process.env.NODE_ENV === 'production' ? '' : ''}>
       <ErrorBoundary>
         <DataProvider>
           <AuthProvider 
