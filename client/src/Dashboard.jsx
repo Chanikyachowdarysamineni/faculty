@@ -265,7 +265,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
       });
       const data = result.data || {};
       
-      // 404 is expected if the faculty hasn't submitted yet — just ignore it
+      // 404 is expected if the faculty hasn't submitted yet ï¿½ just ignore it
       if (result.status === 404) {
         setSubmissions([]);
         setSubmissionsSyncError('');
@@ -841,7 +841,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
             <img src="/logo.webp" alt="Logo" className="rp-brand-logo" />
             <div>
               <div className="rp-brand-name">Faculty Workload Management</div>
-              <div className="rp-brand-sub">Vignan Foundation For Science Technology & Research · CSE Department</div>
+              <div className="rp-brand-sub">Vignan Foundation For Science Technology & Research ï¿½ CSE Department</div>
             </div>
           </div>
 
@@ -1147,23 +1147,10 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
         )}
 
         {isAdmin && dashboardData.loading && (
-          <div className="dash-live-note">Refreshing dashboard data…</div>
+          <div className="dash-live-note">Refreshing dashboard dataï¿½</div>
         )}
 
-        {/* â”€â”€ Stat cards â”€â”€ */}
-        <div className="dash-cards">
-          {stats.map((s) => (
-            <div className="dash-card" key={s.label}>
-              <div className="dash-card-icon" style={{ background: s.bg, color: s.color }}>
-                {s.icon}
-              </div>
-              <div className="dash-card-info">
-                <span className="dash-card-value" style={{ color: s.color }}>{s.value}</span>
-                <span className="dash-card-label">{s.label}</span>
-              </div>
-            </div>
-          ))}
-        </div>
+
 
         {isAdmin ? (
           <>
@@ -1275,7 +1262,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
                 <div className="dash-panel-list">
                   {dashboardComputed.availableFaculty.map(f => (
                     <div key={f.empId} className="dash-pill dash-pill-available">
-                      {f.name} ({f.empId}) • Remaining {f.remainingLoad}h
+                      {f.name} ({f.empId}) ï¿½ Remaining {f.remainingLoad}h
                     </div>
                   ))}
                   {dashboardComputed.availableFaculty.length === 0 && <div className="dash-muted">No available faculty.</div>}
@@ -1340,13 +1327,13 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
                     </span>
                   )}
                   <button className="dash-sec-btn" onClick={fetchIntegrity} disabled={integrityLoading} style={{ padding: '4px 10px', fontSize: '0.8rem' }}>
-                    {integrityLoading ? 'Checking…' : '? Check Now'}
+                    {integrityLoading ? 'Checkingï¿½' : '? Check Now'}
                   </button>
                 </div>
               </div>
               <div className="dash-alert-wrap" style={{ padding: '12px 16px' }}>
                 {integrityError && <div className="dash-live-warning" style={{ marginBottom: 8 }}>{integrityError}</div>}
-                {integrityLoading && !integrityData && <div className="dash-live-note">Running integrity checks…</div>}
+                {integrityLoading && !integrityData && <div className="dash-live-note">Running integrity checksï¿½</div>}
                 {integrityData && (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
                     {[
@@ -1406,52 +1393,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
           <>
             {/* Faculty Dashboard Content */}
 
-            {/* Quick Actions Row */}
-            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-              {/* Available Courses */}
-              <div className="faculty-compact-card">
-                <div className="faculty-compact-header">
-                  <span className="faculty-compact-title">?? Available</span>
-                </div>
-                <div className="faculty-compact-value" style={{ color: '#3b82f6' }}>
-                  {liveCourses.length}
-                </div>
-                <div className="faculty-compact-label">Courses</div>
-              </div>
 
-              {/* Faculty Form */}
-              <div className="faculty-compact-card">
-                <div className="faculty-compact-header">
-                  <span className="faculty-compact-title">?? Form</span>
-                </div>
-                <div className="faculty-compact-value" style={{ color: formEnabled ? '#8b5cf6' : '#d1d5db' }}>
-                  {formEnabled ? '? Open' : '? Closed'}
-                </div>
-                <div className="faculty-compact-label">Status</div>
-              </div>
-
-              {/* My Workload */}
-              <div className="faculty-compact-card">
-                <div className="faculty-compact-header">
-                  <span className="faculty-compact-title">?? Workload</span>
-                </div>
-                <div className="faculty-compact-value" style={{ color: '#f97316' }}>
-                  {dashboardComputed.totalFacultyHours || 0}
-                </div>
-                <div className="faculty-compact-label">Total Hours</div>
-              </div>
-
-              {/* My Submissions */}
-              <div className="faculty-compact-card">
-                <div className="faculty-compact-header">
-                  <span className="faculty-compact-title">? Submissions</span>
-                </div>
-                <div className="faculty-compact-value" style={{ color: '#a855f7' }}>
-                  {submissions.length}
-                </div>
-                <div className="faculty-compact-label">Submitted</div>
-              </div>
-            </div>
 
             {/* System Information */}
             <div className="faculty-dashboard-card">
@@ -1484,7 +1426,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
           <div className="cp-modal cp-modal-sm" onClick={e => e.stopPropagation()} style={{ maxWidth: 380 }}>
             <div className="cp-modal-head">
               <h3>
-                {sectionModal.mode === 'add' && `Add Section — ${sectionYear}`}
+                {sectionModal.mode === 'add' && `Add Section ï¿½ ${sectionYear}`}
                 {sectionModal.mode === 'rename' && `Rename Section '${sectionModal.section}'`}
                 {sectionModal.mode === 'delete' && `Delete Section '${sectionModal.section}'`}
               </h3>
@@ -1500,7 +1442,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
                   autoFocus
                   className="cp-input"
                   style={{ width: '100%', boxSizing: 'border-box' }}
-                  placeholder={sectionModal.mode === 'add' ? 'Section name / number…' : 'New section name…'}
+                  placeholder={sectionModal.mode === 'add' ? 'Section name / numberï¿½' : 'New section nameï¿½'}
                   value={sectionModal.input}
                   onChange={e => setSectionModal(prev => ({ ...prev, input: e.target.value }))}
                   onKeyDown={e => { if (e.key === 'Enter') confirmSectionModal(); if (e.key === 'Escape') closeSectionModal(); }}
