@@ -17,6 +17,8 @@
     "import-courses-json": "node scripts/import-courses-json.js",
     "diagnostic": "node src/diagnostic.js",
     "create-indexes": "node src/scripts/create_indexes.js",
+    "setup:admin": "node scripts/setup-admin-user.js",
+    "make-admin": "node scripts/make-admin.js",
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

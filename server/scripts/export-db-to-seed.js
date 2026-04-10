@@ -17,29 +17,40 @@
 
 'use strict';
 
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+const path = require('path');
+const dotenvPath = path.join(__dirname, '..', '.env');
+require('dotenv').config({ path: dotenvPath });
+
 const mongoose = require('mongoose');
 const fs = require('fs');
-const path = require('path');
 const bcrypt = require('bcryptjs');
 
-// Models
-const User = require('../models/User');
-const Faculty = require('../models/Faculty');
-const Course = require('../models/Course');
-const Workload = require('../models/Workload');
-const Submission = require('../models/Submission');
-const CourseAllocation = require('../models/CourseAllocation');
-const Setting = require('../models/Setting');
-const AuditLog = require('../models/AuditLog');
-const { connect } = require('../db');
+// Add src directory to module search path
+const srcPath = path.join(__dirname, '..', 'src');
+const User = require(path.join(srcPath, 'models', 'User'));
+const Faculty = require(path.join(srcPath, 'models', 'Faculty'));
+const Course = require(path.join(srcPath, 'models', 'Course'));
+const Workload = require(path.join(srcPath, 'models', 'Workload'));
+const Submission = require(path.join(srcPath, 'models', 'Submission'));
+const CourseAllocation = require(path.join(srcPath, 'models', 'CourseAllocation'));
+const Setting = require(path.join(srcPath, 'models', 'Setting'));
+const AuditLog = require(path.join(srcPath, 'models', 'AuditLog'));
+const { connect } = require(path.join(srcPath, 'db'));
 
 // ────────────────────────────────────────────────────────────
 // Configuration
 // ────────────────────────────────────────────────────────────
 
 const OUTPUT_FILE = process.argv[3] || 
-  path.join(__dirname, '..', 'seed-production-import.js');
+  path.join(__dirname, '..', 'seeds', 'seed-data.json');
+
+const OUTPUT_FILE_JS = path.join(__dirname, '..', 'seeds', 'seed-production-import.js');
+
+// Ensure seeds directory exists
+const seedsDir = path.join(__dirname, '..', 'seeds');
+if (!fs.existsSync(seedsDir)) {
+  fs.mkdirSync(seedsDir, { recursive: true });
+}
 
 const COLLECTIONS_TO_EXPORT = [
   { name: 'users', model: User, maxRecords: null },
@@ -90,12 +101,17 @@ const exportDatabaseToSeed = async () => {
     }
 
     // ── Generate seed file ─────────────────────────────────
-    console.log('📝 Generating seed file...\n');
+    console.log('📝 Generating seed files...\n');
     const seedContent = generateSeedFile(exportedData);
+    const seedJSON = generateSeedJSON(exportedData);
 
-    // ── Write to file ──────────────────────────────────────
-    fs.writeFileSync(OUTPUT_FILE, seedContent);
-    console.log(`✅ Seed file created: ${OUTPUT_FILE}\n`);
+    // ── Write to JSON file ─────────────────────────────────
+    fs.writeFileSync(OUTPUT_FILE, seedJSON);
+    console.log(`✅ JSON seed file created: ${OUTPUT_FILE}\n`);
+
+    // ── Write to JS file ───────────────────────────────────
+    fs.writeFileSync(OUTPUT_FILE_JS, seedContent);
+    console.log(`✅ JS seed file created: ${OUTPUT_FILE_JS}\n`);
 
     // ── Summary ────────────────────────────────────────────
     console.log('═'.repeat(60));
@@ -106,11 +122,14 @@ const exportDatabaseToSeed = async () => {
     for (const [name, records] of Object.entries(exportedData)) {
       console.log(`  • ${name}: ${records.length} records`);
     }
-    console.log(`\n📁 Output: ${OUTPUT_FILE}`);
+    console.log(`\n📁 Output files:`);
+    console.log(`   • JSON: ${OUTPUT_FILE}`);
+    console.log(`   • JS:   ${OUTPUT_FILE_JS}`);
     console.log('\n🚀 Next Steps:');
-    console.log('   1. Review the exported seed file');
-    console.log('   2. Test it: npm run seed:prod');
-    console.log('   3. Deploy to production\n');
+    console.log('   1. Review the exported seed files');
+    console.log('   2. Test import: npm run seed:prod:import');
+    console.log('   3. Commit to version control for backup');
+    console.log('   4. Deploy to production\n');
 
     process.exit(0);
   } catch (error) {
@@ -125,6 +144,36 @@ const exportDatabaseToSeed = async () => {
 // Seed File Generator
 // ────────────────────────────────────────────────────────────
 
+// ────────────────────────────────────────────────────────────
+// Seed File Generators
+// ────────────────────────────────────────────────────────────
+
+/**
+ * Generate JSON seed file (for backup and version control)
+ */
+const generateSeedJSON = (data) => {
+  const sanitized = JSON.parse(JSON.stringify(data, (key, value) => {
+    // Remove sensitive fields
+    if (key === 'passwordHash' || key === '__v') {
+      return undefined;
+    }
+    return value;
+  }));
+
+  return JSON.stringify(
+    {
+      exportedAt: new Date().toISOString(),
+      totalRecords: Object.values(sanitized).reduce((sum, arr) => sum + arr.length, 0),
+      collections: sanitized,
+    },
+    null,
+    2
+  );
+};
+
+/**
+ * Generate JavaScript seed file (for importing into database)
+ */
 const generateSeedFile = (data) => {
   // Sanitize data for safe JSON stringification
   const sanitized = JSON.parse(JSON.stringify(data, (key, value) => {
@@ -151,23 +200,27 @@ const generateSeedFile = (data) => {
 
 'use strict';
 
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+const path = require('path');
+const dotenvPath = path.join(__dirname, '..', '.env');
+require('dotenv').config({ path: dotenvPath });
+
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 // Models
-const User = require('./models/User');
-const Faculty = require('./models/Faculty');
-const Course = require('./models/Course');
-const Workload = require('./models/Workload');
-const Submission = require('./models/Submission');
-const CourseAllocation = require('./models/CourseAllocation');
-const Setting = require('./models/Setting');
-const AuditLog = require('./models/AuditLog');
-const { connect } = require('./db');
+const srcPath = path.join(__dirname, '..', 'src');
+const User = require(path.join(srcPath, 'models', 'User'));
+const Faculty = require(path.join(srcPath, 'models', 'Faculty'));
+const Course = require(path.join(srcPath, 'models', 'Course'));
+const Workload = require(path.join(srcPath, 'models', 'Workload'));
+const Submission = require(path.join(srcPath, 'models', 'Submission'));
+const CourseAllocation = require(path.join(srcPath, 'models', 'CourseAllocation'));
+const Setting = require(path.join(srcPath, 'models', 'Setting'));
+const AuditLog = require(path.join(srcPath, 'models', 'AuditLog'));
+const { connect } = require(path.join(srcPath, 'db'));
 
 // ────────────────────────────────────────────────────────────
-// Exported Data from Existing Database
+// Exported Data from Existing Database (Exported: ${new Date().toISOString()})
 // ────────────────────────────────────────────────────────────
 
 const EXPORTED_USERS = ${JSON.stringify(sanitized.users, null, 2)};
@@ -184,7 +237,7 @@ const EXPORTED_ALLOCATIONS = ${JSON.stringify(sanitized.courseAllocations, null,
 
 const EXPORTED_SETTINGS = ${JSON.stringify(sanitized.settings, null, 2)};
 
-const EXPORTED_AUDIT_LOGS = ${JSON.stringify(sanitized.auditLogs.slice(0, 50), null, 2)};
+const EXPORTED_AUDIT_LOGS = ${JSON.stringify(sanitized.auditLogs.slice(0, 100), null, 2)};
 
 // ────────────────────────────────────────────────────────────
 // Seed Function
@@ -271,6 +324,20 @@ const seedDatabase = async () => {
       console.log('   ⏭️  Workloads already exist\\n');
     }
 
+    // ── SUBMISSIONS ────────────────────────────────────────
+    console.log('📤 Importing submissions...');
+    let submissionsCreated = 0;
+    for (const submission of EXPORTED_SUBMISSIONS) {
+      const exists = await Submission.findOne({ _id: submission._id });
+      if (!exists) {
+        await Submission.create(submission);
+        submissionsCreated++;
+      }
+    }
+    if (submissionsCreated > 0) {
+      console.log(\`   ✅ \${submissionsCreated} submissions imported\\n\`);
+    }
+
     // ── SETTINGS ───────────────────────────────────────────
     console.log('⚙️  Importing settings...');
     let settingsCreated = 0;
@@ -292,7 +359,7 @@ const seedDatabase = async () => {
       console.log('📋 Importing allocations...');
       let allocationsCreated = 0;
       for (const allocation of EXPORTED_ALLOCATIONS) {
-        const exists = await CourseAllocation.findOne({ _id: allocation._id });
+        const exists = await CourseAllocation.findById(allocation._id);
         if (!exists) {
           await CourseAllocation.create(allocation);
           allocationsCreated++;
@@ -312,6 +379,7 @@ const seedDatabase = async () => {
     console.log(\`   - Faculty: \${EXPORTED_FACULTY.length}\`);
     console.log(\`   - Courses: \${EXPORTED_COURSES.length}\`);
     console.log(\`   - Workloads: \${EXPORTED_WORKLOADS.length}\`);
+    console.log(\`   - Submissions: \${EXPORTED_SUBMISSIONS.length}\`);
     console.log(\`   - Settings: \${EXPORTED_SETTINGS.length}\`);
     console.log(\`   - Allocations: \${EXPORTED_ALLOCATIONS.length}\`);
     console.log('\\n🚀 Production ready for deployment!\\n');

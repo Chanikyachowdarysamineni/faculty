@@ -1080,5 +1080,122 @@ router.get('/workload-report', requireAuth, requireAdmin, async (req, res, next)
   }
 });
 
+/**
+ * PUT /api/workloads/:id/periods
+ * Update workload periods (L/T/P hours) with validation for capacity
+ * Allows admin to fix faculty workload hours
+ * Admin only
+ */
+router.put('/:id/periods', requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { manualL, manualT, manualP } = req.body;
+
+    // Validate input
+    const newL = Number(manualL);
+    const newT = Number(manualT);
+    const newP = Number(manualP);
+
+    if (isNaN(newL) || isNaN(newT) || isNaN(newP)) {
+      logger.warn('Invalid period values in update', { id, manualL, manualT, manualP, userId: req.user.id });
+      return sendError(res, 'Invalid period values. L, T, P must be numbers.', 400);
+    }
+
+    if (newL < 0 || newT < 0 || newP < 0) {
+      logger.warn('Negative period values in update', { id, manualL, manualT, manualP, userId: req.user.id });
+      return sendError(res, 'Period values cannot be negative.', 400);
+    }
+
+    const workload = await Workload.findById(id).lean();
+    if (!workload) {
+      logger.warn('Workload not found for period update', { id, userId: req.user.id });
+      return sendNotFound(res, 'Workload entry not found.');
+    }
+
+    const faculty = await Faculty.findOne({ empId: workload.empId }).lean();
+    if (!faculty) {
+      logger.warn('Faculty not found for period update validation', { empId: workload.empId, userId: req.user.id });
+      return sendNotFound(res, 'Faculty not found.');
+    }
+
+    const totalCapacity = Number(faculty.totalWorkingHours || 24);
+    
+    // Get current total hours excluding this workload
+    const otherWorkloads = await Workload.find({ 
+      empId: workload.empId, 
+      _id: { $ne: id } 
+    }).lean();
+
+    let currentTotalHours = 0;
+    otherWorkloads.forEach(w => {
+      const L = Number(w.manualL || w.fixedL || 0);
+      const T = Number(w.manualT || w.fixedT || 0);
+      const P = Number(w.manualP || w.fixedP || 0);
+      currentTotalHours += (L + T + P);
+    });
+
+    const newWorkloadHours = newL + newT + newP;
+    const updatedTotal = currentTotalHours + newWorkloadHours;
+    const excessHours = updatedTotal > totalCapacity ? updatedTotal - totalCapacity : 0;
+
+    const result = await Workload.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          manualL: newL,
+          manualT: newT,
+          manualP: newP,
+        }
+      },
+      { new: true }
+    ).lean();
+
+    await logAuditEvent({
+      req,
+      action: 'workload.periods.update',
+      entity: 'workload',
+      entityId: id,
+      metadata: {
+        empId: workload.empId,
+        previousL: workload.manualL || workload.fixedL,
+        previousT: workload.manualT || workload.fixedT,
+        previousP: workload.manualP || workload.fixedP,
+        newL,
+        newT,
+        newP,
+        isOverAllocated: updatedTotal > totalCapacity,
+        excessHours,
+        totalCapacity,
+      }
+    });
+
+    logger.info('Workload periods updated', {
+      id,
+      empId: workload.empId,
+      newL,
+      newT,
+      newP,
+      updatedTotal,
+      totalCapacity,
+      excessHours,
+      userId: req.user.id
+    });
+
+    sendSuccess(res, {
+      ...toClient(result),
+      capacityInfo: {
+        totalCapacity,
+        currentTotalHours: updatedTotal,
+        remainingHours: Math.max(0, totalCapacity - updatedTotal),
+        excessHours,
+        isOverAllocated: updatedTotal > totalCapacity,
+      }
+    }, 200);
+  } catch (err) {
+    logger.error('Error updating workload periods', { error: err.message, id: req.params.id, userId: req.user.id });
+    next(err);
+  }
+});
+
 module.exports = router;
 

@@ -13,6 +13,7 @@ const Submission  = require('../models/Submission');
 const Workload    = require('../models/Workload');
 const CourseAllocation = require('../models/CourseAllocation');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { getFacultyWorkloadSummary, getFacultyWorkloadReport } = require('../utils/workloadHours');
 
 const router = express.Router();
 
@@ -207,6 +208,83 @@ router.get('/', requireAuth, async (req, res, next) => {
       },
     });
   } catch (err) { next(err); }
+});
+
+/**
+ * GET /api/stats/overloaded-faculty
+ * Retrieve list of all overloaded faculty with detailed breakdown and assignments
+ * Admin only
+ */
+router.get('/overloaded-faculty', requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const report = await getFacultyWorkloadReport();
+    const overloadedFaculty = report.filter(f => f.isOverAllocated);
+
+    res.json({
+      success: true,
+      data: {
+        count: overloadedFaculty.length,
+        faculty: overloadedFaculty.map(f => ({
+          empId: f.empId,
+          name: f.name,
+          designation: f.designation,
+          department: f.department,
+          totalCapacity: f.totalCapacity,
+          currentLoad: f.currentLoad,
+          remainingHours: f.remainingHours,
+          excessHours: Math.max(0, f.currentLoad - f.totalCapacity),
+          utilizationPercent: f.utilizationPercent,
+          isOverAllocated: f.isOverAllocated,
+          assignmentCount: f.assignmentCount,
+          assignments: f.assignments.map(a => ({
+            id: a.id,
+            subjectCode: a.subjectCode,
+            subjectName: a.subjectName,
+            year: a.year,
+            section: a.section,
+            role: a.role,
+            lectureHours: a.lectureHours,
+            tutorialHours: a.tutorialHours,
+            practicalHours: a.practicalHours,
+            totalHours: a.totalHours,
+          })),
+        })),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/stats/faculty-workload/:empId
+ * Retrieve detailed workload summary for a specific faculty member
+ * Admin only
+ */
+router.get('/faculty-workload/:empId', requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const { empId } = req.params;
+    const summary = await getFacultyWorkloadSummary(empId);
+
+    res.json({
+      success: true,
+      data: {
+        empId: summary.empId,
+        name: summary.name,
+        designation: summary.designation,
+        totalCapacity: summary.totalWorkingHours,
+        currentLoad: summary.currentLoad,
+        remainingHours: summary.remainingHours,
+        excessHours: Math.max(0, summary.currentLoad - summary.totalWorkingHours),
+        utilizationPercent: summary.utilizationPercent,
+        isOverAllocated: summary.isOverAllocated,
+        assignments: summary.assignments,
+        breakdown: summary.breakdown,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;

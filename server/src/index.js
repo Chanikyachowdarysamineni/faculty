@@ -101,13 +101,12 @@ const configuredOrigins = (process.env.CLIENT_ORIGIN || '')
   .filter(Boolean);
 
 const baselineAllowedOrigins = [
-  'https://faculty-workload-management-cse-client.onrender.com',
-  'https://faculty-workload-management.onrender.com',
-  'https://wlm-client.onrender.com',
-  'https://faculty-workload-management-1.onrender.com',
+  'http://faculty-workload-management-cse-client.onrender.com',
+  'http://faculty-workload-management.onrender.com',
+  'http://wlm-client.onrender.com',
+  'http://faculty-workload-management-1.onrender.com',
   // Production server
   'http://160.187.169.41',
-  'https://160.187.169.41',
   // Always allow localhost for local development (all routes require JWT auth anyway)
   'http://localhost:3000',
   'http://localhost:3001',
@@ -128,14 +127,10 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:', 'https:'],
+      imgSrc: ["'self'", 'data:', 'http:'],
     },
   },
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true,
-  },
+  hsts: false,
 }));
 
 app.use(cors({
@@ -147,15 +142,8 @@ app.use(cors({
 }));
 app.set('trust proxy', 1);
 
-// ── Redirect HTTP to HTTPS in Production ───────────────────
-if (process.env.NODE_ENV === 'production') {
-  app.use((req, res, next) => {
-    if (!req.secure && req.headers['x-forwarded-proto'] !== 'https') {
-      return res.redirect(301, `https://${req.headers.host}${req.url}`);
-    }
-    next();
-  });
-}
+// ── HTTP Only in Production (No HTTPS Redirect) ───────────────────
+// Using HTTP only - no redirect to HTTPS
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

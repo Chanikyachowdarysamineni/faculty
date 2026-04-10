@@ -10,6 +10,7 @@ import MySubmissionsPage    from './MySubmissionsPage';
 import MyWorkloadPage       from './MyWorkloadPage';
 import ProfilePage          from './ProfilePage';
 import AuditLogPage         from './AuditLogPage';
+import OverloadedFacultyModal from './OverloadedFacultyModal';
 import API                  from './config';
 import { fetchAllPages, fetchJsonWithRetry }    from './utils/apiFetchAll';
 import { fetchSectionsConfig } from './utils/sectionsApi';
@@ -232,6 +233,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
   const [sectionsConfig, setSectionsConfig] = useState(null);
   const [sectionYear, setSectionYear] = useState('I');
   const [masterData, setMasterData] = useState({ faculty: [], courses: [] });
+  const [showOverloadedModal, setShowOverloadedModal] = useState(false);
 
   const formatSyncedAt = useCallback((date) => {
     if (!date) return 'Not synced yet';
@@ -753,30 +755,6 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
           color: '#6b74e8', bg: '#eef0fd',
         },
         {
-          label: 'Allocated Sections',
-          value: dashboardComputed.courseRows.length,
-          icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-            </svg>
-          ),
-          color: '#22c55e', bg: '#dcfce7',
-        },
-        {
-          label: 'Pending Hours',
-          value: dashboardComputed.pendingTotalHours,
-          icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
-              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-            </svg>
-          ),
-          color: '#f59e0b', bg: '#fef9c3',
-        },
-        {
           label: 'Overloaded Faculty',
           value: dashboardComputed.overloadedFaculty.length,
           icon: (
@@ -819,7 +797,7 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
         color: '#3b82f6', bg: '#dbeafe',
       },
     ];
-  }, [isAdmin, mySubmission, submissions.length, dashboardComputed.courseRows.length, dashboardComputed.pendingTotalHours, dashboardComputed.overloadedFaculty.length, liveFaculty.length]);
+  }, [isAdmin, mySubmission, submissions.length, dashboardComputed.overloadedFaculty.length, liveFaculty.length]);
 
   const stats = getMyStats;
 
@@ -1155,7 +1133,19 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
         {/* ── Stat cards ── */}
         <div className="dash-cards">
           {stats.map((s) => (
-            <div className="dash-card" key={s.label}>
+            <div
+              className="dash-card"
+              key={s.label}
+              style={{
+                cursor: isAdmin && s.label === 'Overloaded Faculty' ? 'pointer' : 'default',
+              }}
+              onClick={() => {
+                if (isAdmin && s.label === 'Overloaded Faculty') {
+                  setShowOverloadedModal(true);
+                }
+              }}
+              title={isAdmin && s.label === 'Overloaded Faculty' ? 'Click to view and manage overloaded faculty' : ''}
+            >
               <div className="dash-card-icon" style={{ background: s.bg, color: s.color }}>
                 {s.icon}
               </div>
@@ -1166,6 +1156,9 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
             </div>
           ))}
         </div>
+
+        {/* Overloaded Faculty Modal */}
+        {isAdmin && <OverloadedFacultyModal isOpen={showOverloadedModal} onClose={() => setShowOverloadedModal(false)} />}
 
         {isAdmin ? (
           <>
@@ -1269,6 +1262,165 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
                   })}
                 </tbody>
               </table>
+            </div>
+
+            <div className="dash-table-card" style={{ marginTop: '24px' }}>
+              <div className="dash-table-header">
+                <span className="dash-table-title">Faculty Periods Breakdown</span>
+                <span className="dash-table-badge" style={{ background: '#f3e8ff', color: '#6b21a8' }}>
+                  {dashboardComputed.facultySummary.length} faculty members
+                </span>
+              </div>
+              <table className="dash-table dash-compact-table">
+                <thead>
+                  <tr>
+                    <th>Faculty Name</th>
+                    <th title="Lecture Hours">L Periods</th>
+                    <th title="Tutorial Hours">T Periods</th>
+                    <th title="Practical Hours">P Periods</th>
+                    <th>Total Allocated</th>
+                    <th>Remaining</th>
+                    <th>Capacity</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dashboardComputed.facultySummary.map((f) => {
+                    const statusIcon = f.statusTone === 'over' 
+                      ? '🔴' 
+                      : (f.statusTone === 'near' || f.statusTone === 'full' ? '🟡' : '🟢');
+                    const statusBgColor = f.statusTone === 'over' 
+                      ? '#fee2e2' 
+                      : (f.statusTone === 'near' || f.statusTone === 'full' ? '#fef3c7' : '#dcfce7');
+                    const statusTextColor = f.statusTone === 'over' 
+                      ? '#991b1b' 
+                      : (f.statusTone === 'near' || f.statusTone === 'full' ? '#92400e' : '#166534');
+                    
+                    return (
+                      <tr key={f.empId}>
+                        <td>{f.name} ({f.empId})</td>
+                        <td>
+                          <span className="dash-period-badge">{Math.round(f.lectureHours)}</span>
+                        </td>
+                        <td>
+                          <span className="dash-period-badge">{Math.round(f.tutorialHours)}</span>
+                        </td>
+                        <td>
+                          <span className="dash-period-badge">{Math.round(f.practicalHours)}</span>
+                        </td>
+                        <td>
+                          <strong>{f.assignedHours}</strong>
+                        </td>
+                        <td style={{
+                          color: f.remainingLoad < 0 ? '#dc2626' : '#16a34a',
+                          fontWeight: '600',
+                        }}>
+                          {Math.max(0, f.remainingLoad)}
+                        </td>
+                        <td>{f.capacity}</td>
+                        <td style={{
+                          background: statusBgColor,
+                          color: statusTextColor,
+                          padding: '6px 10px',
+                          borderRadius: '4px',
+                          fontWeight: '600',
+                          fontSize: '13px',
+                        }}>
+                          {statusIcon} {f.statusTone === 'over' ? 'Overloaded' : (f.statusTone === 'near' ? 'Near Capacity' : (f.statusTone === 'full' ? 'Full' : 'Available'))}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="dash-periods-summary" style={{ marginTop: '24px' }}>
+              <div className="dash-table-card">
+                <div className="dash-table-header">
+                  <span className="dash-table-title">Periods Summary & Statistics</span>
+                </div>
+                <div style={{
+                  padding: '20px',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                  gap: '16px'
+                }}>
+                  <div className="dash-summary-box" style={{
+                    padding: '16px',
+                    background: 'linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%)',
+                    border: '1px solid #bfdbfe',
+                    borderRadius: '8px'
+                  }}>
+                    <div style={{ fontSize: '12px', color: '#1e40af', fontWeight: '600', textTransform: 'uppercase' }}>Total Faculty</div>
+                    <div style={{ fontSize: '28px', fontWeight: '700', color: '#1e40af', marginTop: '8px' }}>
+                      {dashboardComputed.facultySummary.length}
+                    </div>
+                  </div>
+
+                  <div className="dash-summary-box" style={{
+                    padding: '16px',
+                    background: 'linear-gradient(135deg, #dcfce7 0%, #dbeafe 100%)',
+                    border: '1px solid #86efac',
+                    borderRadius: '8px'
+                  }}>
+                    <div style={{ fontSize: '12px', color: '#16a34a', fontWeight: '600', textTransform: 'uppercase' }}>Available Faculty</div>
+                    <div style={{ fontSize: '28px', fontWeight: '700', color: '#16a34a', marginTop: '8px' }}>
+                      {dashboardComputed.availableFaculty.length}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#4d7c0f', marginTop: '6px' }}>Can take more periods</div>
+                  </div>
+
+                  <div className="dash-summary-box" style={{
+                    padding: '16px',
+                    background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                    border: '1px solid #fde047',
+                    borderRadius: '8px'
+                  }}>
+                    <div style={{ fontSize: '12px', color: '#92400e', fontWeight: '600', textTransform: 'uppercase' }}>At Capacity</div>
+                    <div style={{ fontSize: '28px', fontWeight: '700', color: '#92400e', marginTop: '8px' }}>
+                      {dashboardComputed.fullyLoadedFaculty.length}
+                    </div>
+                  </div>
+
+                  <div className="dash-summary-box" style={{
+                    padding: '16px',
+                    background: 'linear-gradient(135deg, #fee2e2 0%, #fecdd3 100%)',
+                    border: '1px solid #fca5a5',
+                    borderRadius: '8px'
+                  }}>
+                    <div style={{ fontSize: '12px', color: '#dc2626', fontWeight: '600', textTransform: 'uppercase' }}>Overloaded</div>
+                    <div style={{ fontSize: '28px', fontWeight: '700', color: '#dc2626', marginTop: '8px' }}>
+                      {dashboardComputed.overloadedFaculty.length}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#7f1d1d', marginTop: '6px' }}>Need adjustment</div>
+                  </div>
+
+                  <div className="dash-summary-box" style={{
+                    padding: '16px',
+                    background: 'linear-gradient(135deg, #ede9fe 0%, #f3e8ff 100%)',
+                    border: '1px solid #d8b4fe',
+                    borderRadius: '8px'
+                  }}>
+                    <div style={{ fontSize: '12px', color: '#6b21a8', fontWeight: '600', textTransform: 'uppercase' }}>Total Periods Allocated</div>
+                    <div style={{ fontSize: '28px', fontWeight: '700', color: '#6b21a8', marginTop: '8px' }}>
+                      {dashboardComputed.facultySummary.reduce((sum, f) => sum + f.assignedHours, 0).toFixed(1)}h
+                    </div>
+                  </div>
+
+                  <div className="dash-summary-box" style={{
+                    padding: '16px',
+                    background: 'linear-gradient(135deg, #fef08a 0%, #fef3c7 100%)',
+                    border: '1px solid #fae8b0',
+                    borderRadius: '8px'
+                  }}>
+                    <div style={{ fontSize: '12px', color: '#854d0e', fontWeight: '600', textTransform: 'uppercase' }}>Total Remaining</div>
+                    <div style={{ fontSize: '28px', fontWeight: '700', color: '#854d0e', marginTop: '8px' }}>
+                      {dashboardComputed.facultySummary.reduce((sum, f) => sum + Math.max(0, f.remainingLoad), 0).toFixed(1)}h
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="dash-panels-row">
