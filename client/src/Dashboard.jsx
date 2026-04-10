@@ -1152,6 +1152,21 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
 
 
 
+        {/* ── Stat cards ── */}
+        <div className="dash-cards">
+          {stats.map((s) => (
+            <div className="dash-card" key={s.label}>
+              <div className="dash-card-icon" style={{ background: s.bg, color: s.color }}>
+                {s.icon}
+              </div>
+              <div className="dash-card-info">
+                <span className="dash-card-value" style={{ color: s.color }}>{s.value}</span>
+                <span className="dash-card-label">{s.label}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
         {isAdmin ? (
           <>
             <div className="dash-table-card">
@@ -1393,7 +1408,41 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
           <>
             {/* Faculty Dashboard Content */}
 
+            {/* Quick Actions Row */}
+            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+              {/* Available Courses */}
+              <div className="faculty-compact-card">
+                <div className="faculty-compact-header">
+                  <span className="faculty-compact-title">?? Available</span>
+                </div>
+                <div className="faculty-compact-value" style={{ color: '#3b82f6' }}>
+                  {liveCourses.length}
+                </div>
+                <div className="faculty-compact-label">Courses</div>
+              </div>
 
+              {/* Faculty Form */}
+              <div className="faculty-compact-card">
+                <div className="faculty-compact-header">
+                  <span className="faculty-compact-title">?? Form</span>
+                </div>
+                <div className="faculty-compact-value" style={{ color: formEnabled ? '#8b5cf6' : '#d1d5db' }}>
+                  {formEnabled ? '? Open' : '? Closed'}
+                </div>
+                <div className="faculty-compact-label">Status</div>
+              </div>
+
+              {/* My Submissions */}
+              <div className="faculty-compact-card">
+                <div className="faculty-compact-header">
+                  <span className="faculty-compact-title">? Submissions</span>
+                </div>
+                <div className="faculty-compact-value" style={{ color: '#a855f7' }}>
+                  {submissions.length}
+                </div>
+                <div className="faculty-compact-label">Submitted</div>
+              </div>
+            </div>
 
             {/* System Information */}
             <div className="faculty-dashboard-card">
