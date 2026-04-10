@@ -12,7 +12,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: CLIENT_ORIGIN
-        value: https://wlm-client.onrender.com,https://faculty-workload-management.onrender.com,https://faculty-workload-management-cse-client.onrender.com,https://faculty-workload-management-1.onrender.com
+        value: https://faculty-workload-management-cse-client.onrender.com,https://wlm-client.onrender.com,https://faculty-workload-management.onrender.com,https://faculty-workload-management-1.onrender.com
       - key: MONGO_URI
         value: mongodb+srv://raavanaasura87_db_user:Chani8877@chani.irvyksk.mongodb.net/wlm?retryWrites=true&w=majority
       - key: JWT_SECRET
@@ -61,7 +61,7 @@ services:
     staticPublishPath: build
     envVars:
       - key: REACT_APP_API_URL
-        value: https://wlm-server.onrender.com
+        value: https://faculty-workload-management-cse.onrender.com
     routes:
       - type: rewrite
         source: /*
