@@ -12,11 +12,15 @@ services:
       - key: NODE_ENV
         value: production
       - key: CLIENT_ORIGIN
-        value: https://faculty-workload-management-cse-client.onrender.com,https://wlm-client.onrender.com,https://faculty-workload-management.onrender.com,https://faculty-workload-management-1.onrender.com
+        value: https://faculty-workload-management-cse-client.onrender.com,https://wlm-client.onrender.com
       - key: MONGO_URI
         sync: false
+        # ⚠️  IMPORTANT: Set in Render Dashboard
+        # Format: mongodb+srv://username:password@cluster.mongodb.net/database
       - key: JWT_SECRET
         sync: false
+        # ⚠️  IMPORTANT: Set in Render Dashboard
+        # Use: openssl rand -base64 32
       - key: JWT_EXPIRES_IN
         value: 8h
       - key: BCRYPT_ROUNDS
@@ -51,6 +55,7 @@ services:
         value: admin
       - key: ADMIN_PASSWORD
         sync: false
+        # ⚠️  Set in Render Dashboard (strong password)
 
   # ── Frontend React App ───────────────────────────
   - type: web
@@ -66,3 +71,9 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+
+# DEPLOYMENT INSTRUCTIONS:
+# 1. Copy this file to render.yaml (local only, not in git)
+# 2. Set all "sync: false" variables in Render Dashboard
+# 3. DO NOT commit render.yaml with sensitive values
+# 4. Use render.yaml.example as reference only

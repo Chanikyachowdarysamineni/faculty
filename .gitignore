@@ -27,6 +27,8 @@ test-results.xml
 .env.*.local
 .env.production
 !.env.example
+render.yaml
+!render.yaml.example
 
 # ─── IDE & Editor Settings ────────────────────────
 .vscode/
