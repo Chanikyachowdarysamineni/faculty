@@ -502,18 +502,6 @@ const FacultyFormPage = ({
                         </optgroup>
                       );
                     })}
-                    {(() => {
-                      const mtCourses = courseList.filter(c => c.program === 'M.Tech');
-                      return mtCourses.length ? (
-                        <optgroup label="── M.Tech ──">
-                          {mtCourses.map(c => (
-                            <option key={c.id} value={c.id} disabled={prefs.some((v, j) => j !== i && v === String(c.id))}>
-                              [{c.subjectCode}] {c.subjectName} ({c.shortName})
-                            </option>
-                          ))}
-                        </optgroup>
-                      ) : null;
-                    })()}
                     <option value="__other__">Other…</option>
                   </select>
                   {p === '__other__' && (
