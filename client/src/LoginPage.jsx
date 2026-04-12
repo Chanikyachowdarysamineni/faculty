@@ -35,7 +35,10 @@ const LoginPage = ({ onLogin }) => {
       if (!data.success) {
         setError(data.message || 'Login failed.');
       } else if (data.data && data.data.token && data.data.user) {
+        // Successfully logged in - store token and user info
         localStorage.setItem('wlm_token', data.data.token);
+        localStorage.setItem('wlm_user', JSON.stringify(data.data.user));
+        console.log('[Auth] Token stored successfully');
         onLogin(data.data.user);
       } else {
         setError('Invalid login response. Please try again.');
@@ -54,7 +57,7 @@ const LoginPage = ({ onLogin }) => {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ employeeId: forgotId.trim() }),
-      });
+      });  // No auth required for forgot-password
       const data = await res.json();
       setForgotMessage(data.message || 'Reset token has been generated.');
       setResetToken(data.resetToken || '');
@@ -75,7 +78,7 @@ const LoginPage = ({ onLogin }) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: resetToken.trim(), newPassword }),
-      });
+      });  // No auth required for reset-password
       const data = await res.json();
       if (!res.ok || !data.success) {
         setResetMessage(data.message || 'Could not reset password.');

@@ -48,7 +48,11 @@ export const fetchJsonWithRetry = async (url, options = {}) => {
   const retryDelayMs = Number(options.retryDelayMs || DEFAULT_RETRY_DELAY_MS);
   const silentMode = options.silentMode === true; // Suppress logs and retries for expected 404s
 
-  const baseHeaders = options.headers || authJsonHeaders();
+  // Merge provided headers with default auth headers
+  const baseHeaders = {
+    ...authJsonHeaders(),
+    ...(options.headers || {}),
+  };
   const getHeaders = { ...baseHeaders };
   if ('Content-Type' in getHeaders) delete getHeaders['Content-Type'];
   if ('content-type' in getHeaders) delete getHeaders['content-type'];

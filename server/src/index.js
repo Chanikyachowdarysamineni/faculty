@@ -27,6 +27,9 @@ const statsRoutes       = require('./routes/stats');
 const allocationsRoutes = require('./routes/allocations');
 const auditLogsRoutes   = require('./routes/auditLogs');
 
+// ── Import WebSocket handler ────────────────────────────────
+const WebSocketHandler  = require('./websocket');
+
 // ── DB (Mongoose) ────────────────────────────────────────────
 const { connect } = require('./db');
 const Setting     = require('./models/Setting');
@@ -302,7 +305,11 @@ process.on('uncaughtException', (err) => {
     console.log(`   Submissions: GET  http://localhost:${PORT}/deva/submissions`);
     console.log(`   Workloads:   GET  http://localhost:${PORT}/deva/workloads`);
     console.log(`   Stats:       GET  http://localhost:${PORT}/deva/stats`);
-    console.log(`   Health:      GET  http://localhost:${PORT}/deva/health\n`);
+    console.log(`   Health:      GET  http://localhost:${PORT}/deva/health`);
+    console.log(`   WebSocket:   WS   ws://localhost:${PORT}/ws\n`);
+
+    // Initialize WebSocket server
+    WebSocketHandler.initialize(server);
   });
 
   // Render's load balancer holds connections for 75 s+; Node defaults to 5 s,
@@ -313,11 +320,17 @@ process.on('uncaughtException', (err) => {
 
   // ── Graceful shutdown (Render sends SIGTERM before container recycle) ──────
   const gracefulShutdown = (signal) => {
-    console.log(`\n⚠️  ${signal} received. Closing HTTP server…`);
+    console.log(`\n⚠️  ${signal} received. Closing servers…`);
+    
+    // Close WebSocket server first
+    WebSocketHandler.close();
+    
+    // Then close HTTP server
     server.close(() => {
-      console.log('✅  HTTP server closed.');
+      console.log('✅  Servers closed.');
       process.exit(0);
     });
+    
     // Force-exit after 15 s if connections don't drain
     setTimeout(() => {
       console.error('❌  Forced exit after timeout.');

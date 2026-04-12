@@ -66,7 +66,7 @@ class ErrorBoundary extends React.Component {
               </button>
               <button 
                 className="error-btn error-btn-secondary" 
-                onClick={() => window.location.href = '/'}
+                onClick={() => window.location.href = '/csefaculty/'}
               >
                 Go to Dashboard
               </button>

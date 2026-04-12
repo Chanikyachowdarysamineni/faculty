@@ -1,6 +1,9 @@
-const DEFAULT_API_BASE = 'https://faculty-workload-management-cse.onrender.com';
+const DEFAULT_API_BASE = 'http://faculty-workload-management-cse.onrender.com';
 
 const LEGACY_API_HOSTS = [
+	'http://wlm-server.onrender.com',
+	'http://faculty-workload-management.onrender.com',
+	'http://faculty-workload-management-1.onrender.com',
 	'https://wlm-server.onrender.com',
 	'https://faculty-workload-management.onrender.com',
 	'https://faculty-workload-management-1.onrender.com',
@@ -22,7 +25,9 @@ const resolveApiBase = () => {
 	if (process.env.REACT_APP_USE_LOCAL_API === 'true') return 'http://localhost:5000';
 	// In development, use relative paths so CRA's dev proxy handles the request
 	// (avoids CORS issues when connecting to the production server locally).
+	// This allows setupProxy.js to intercept and forward requests to the backend.
 	if (process.env.NODE_ENV === 'development') return '';
+	// Production uses HTTP-only (no HTTPS redirects)
 	return DEFAULT_API_BASE;
 };
 

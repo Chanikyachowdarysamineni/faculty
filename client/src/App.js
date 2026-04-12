@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import API from './config';
 import ErrorBoundary from './ErrorBoundary';
 import ToastProvider from './Toast';
 import LoadingProvider from './LoadingIndicator';
@@ -176,7 +177,7 @@ function App() {
     try {
       const token = localStorage.getItem('wlm_token');
       if (token) {
-        await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/deva/auth/logout`, {
+        await fetch(`${API}/deva/auth/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -276,7 +277,9 @@ function App() {
   }, [handleLogout]);
 
   return (
-    <Router basename={process.env.NODE_ENV === 'production' ? '' : ''}>
+    // Router basename is set to /csefaculty for all child routes
+    // All route paths are relative to /csefaculty (e.g., /login becomes /csefaculty/login)
+    <Router basename="/csefaculty">
       <ErrorBoundary>
         <DataProvider>
           <AuthProvider 

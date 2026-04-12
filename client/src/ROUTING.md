@@ -137,12 +137,14 @@ function Dashboard() {
   const navigate = useNavigate();
   
   return (
-    <button onClick={() => navigate('/csefaculty/faculty')}>
+    <button onClick={() => navigate('/faculty')}>
       Go to Faculty
     </button>
   );
 }
 ```
+
+Note: All routes use relative paths (without /csefaculty/ prefix) because the Router basename is set to '/csefaculty' in App.js.
 
 ### Check Authentication in Component
 ```javascript
@@ -194,7 +196,7 @@ import NewPage from './NewPage';
 
 // In protectedRoutes array:
 {
-  path: '/csefaculty/new-page',
+  path: '/new-page',
   element: <ProtectedRoute><NewPage /></ProtectedRoute>,
   title: 'New Page Title'
 }
@@ -204,7 +206,8 @@ import NewPage from './NewPage';
 ```jsx
 import { Link } from 'react-router-dom';
 
-<Link to="/csefaculty/new-page">New Page</Link>
+{/* Use relative paths - basename /csefaculty is applied by Router */}
+<Link to="/new-page">New Page</Link>
 ```
 
 ## Testing Routes
@@ -212,17 +215,17 @@ import { Link } from 'react-router-dom';
 ### Test Direct URL Access
 1. Open browser to: `http://localhost:3000/csefaculty/faculty`
 2. If logged in → Faculty page renders ✓
-3. If not logged in → Redirected to `/login` ✓
+3. If not logged in → Redirected to `/csefaculty/login` ✓
 
 ### Test Route Protection
 1. Open browser to: `http://localhost:3000/csefaculty/courses`
-2. Without login token → Redirected to `/login` ✓
+2. Without login token → Redirected to `/csefaculty/login` ✓
 3. After login → Courses page renders ✓
 
 ### Test Fallback Routes
-1. Invalid route: `http://localhost:3000/invalid`
-2. If authenticated → Redirected to `/csefaculty` ✓
-3. If not authenticated → Redirected to `/login` ✓
+1. Invalid route: `http://localhost:3000/csefaculty/invalid`
+2. If authenticated → Redirected to `/csefaculty` or dashboard ✓
+3. If not authenticated → Redirected to `/csefaculty/login` ✓
 
 ## Key Features
 
@@ -237,10 +240,11 @@ import { Link } from 'react-router-dom';
 
 ## Backend Route Compatibility
 
-All routes use `/csefaculty` prefix matching backend:
-- ✓ Frontend: `/csefaculty/*`
-- ✓ Backend: `/csefaculty/*`
+All routes work with backend /deva/ endpoints:
+- ✓ Frontend routes: `/csefaculty/*` (relative paths without prefix)
+- ✓ API base: `/csefaculty/deva/*` → backend `/deva/*` (via setupProxy)
 - ✓ Consistent namespace across application
+- ✓ HTTP-only (no HTTPS redirects)
 
 ## Troubleshooting
 

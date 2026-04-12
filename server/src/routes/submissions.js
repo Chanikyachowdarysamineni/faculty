@@ -81,10 +81,26 @@ router.get('/', requireAuth, requireAdmin, validatePagination, async (req, res, 
 router.get('/by-faculty/:empId', requireAuth, requireSelfOrAdmin, async (req, res, next) => {
   try {
     const doc = await Submission.findOne({ empId: req.params.empId }).lean();
+    
     if (!doc) {
-      logger.warn('Submission not found', { empId: req.params.empId, userId: req.user.id });
-      return sendNotFound(res, 'No submission found for this faculty.');
+      // If no submission exists, return an empty submission template
+      // This allows faculty to view and create preferences even if they haven't submitted yet
+      const member = await Faculty.findOne({ empId: req.params.empId.trim() }).lean();
+      
+      logger.info('Empty submission returned (not yet submitted)', { empId: req.params.empId, userId: req.user.id });
+      
+      return sendSuccess(res, {
+        id: null,
+        empId: req.params.empId,
+        empName: member?.name ?? 'Unknown',
+        designation: member?.designation ?? 'N/A',
+        mobile: member?.mobile ?? 'N/A',
+        prefs: [],
+        submittedAt: null,
+        updatedAt: null,
+      }, 200);
     }
+    
     logger.info('Submission retrieved', { empId: req.params.empId, userId: req.user.id });
     sendSuccess(res, toClient(doc), 200);
   } catch (err) { 
