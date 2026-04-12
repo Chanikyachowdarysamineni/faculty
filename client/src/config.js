@@ -1,11 +1,11 @@
-const DEFAULT_API_BASE = 'http://faculty-workload-management-cse.onrender.com';
+const DEFAULT_API_BASE = 'https://faculty-workload-management-cse.onrender.com';
 
 const LEGACY_API_HOSTS = [
 	'http://wlm-server.onrender.com',
-	'http://faculty-workload-management.onrender.com',
-	'http://faculty-workload-management-1.onrender.com',
 	'https://wlm-server.onrender.com',
+	'http://faculty-workload-management.onrender.com',
 	'https://faculty-workload-management.onrender.com',
+	'http://faculty-workload-management-1.onrender.com',
 	'https://faculty-workload-management-1.onrender.com',
 ];
 
