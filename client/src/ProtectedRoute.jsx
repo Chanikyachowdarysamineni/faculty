@@ -32,14 +32,3 @@ export const ProtectedRoute = ({ children, roles = [] }) => {
 export default ProtectedRoute;
 
 
-  // Roles specified and user doesn't have required role: redirect to dashboard
-  if (roles.length > 0 && !roles.includes(currentUser?.role)) {
-    return <Navigate to="/" replace />;
-  }
-
-  return children;
-};
-
-export default ProtectedRoute;
-
-
