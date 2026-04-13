@@ -122,6 +122,8 @@ router.post(
 
       const { program, courseType, year = '', subjectCode, subjectName, shortName, L, T, P, C } = req.body;
       const normalizedSubjectCode = String(subjectCode || '').trim().toUpperCase();
+      const normalizedYear = normalizeYear(year);
+      
       const duplicateCode = await Course.findOne({ subjectCode: normalizedSubjectCode }).lean();
       if (duplicateCode) {
         logger.warn('Duplicate course code attempted', { subjectCode: normalizedSubjectCode, userId: req.user.id });
@@ -130,13 +132,16 @@ router.post(
 
       const doc = await Course.create({
         courseId,
-        program,
+        program: String(program || '').trim(),
         courseType: String(courseType || '').trim(),
-        year: String(year || '').trim(),
+        year: normalizedYear,
         subjectCode: normalizedSubjectCode,
         subjectName: String(subjectName || '').trim(),
         shortName: String(shortName || '').trim(),
-        L, T, P, C,
+        L: Number(L) || 0,
+        T: Number(T) || 0,
+        P: Number(P) || 0,
+        C: Number(C) || 0,
       });
       await logAuditEvent({ req, action: 'course.create', entity: 'course', entityId: String(doc.courseId) });
       logger.info('Course created', { courseId: doc.courseId, subjectCode: doc.subjectCode, userId: req.user.id });
@@ -171,7 +176,14 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res, next) => {
       }
     }
     if (updates.courseType !== undefined) updates.courseType = String(updates.courseType || '').trim();
-    if (updates.year !== undefined) updates.year = String(updates.year || '').trim();
+    if (updates.year !== undefined) updates.year = normalizeYear(updates.year);
+    if (updates.program !== undefined) updates.program = String(updates.program || '').trim();
+    
+    // Ensure numeric fields are numbers
+    if (updates.L !== undefined) updates.L = Number(updates.L) || 0;
+    if (updates.T !== undefined) updates.T = Number(updates.T) || 0;
+    if (updates.P !== undefined) updates.P = Number(updates.P) || 0;
+    if (updates.C !== undefined) updates.C = Number(updates.C) || 0;
 
     const doc = await Course.findOneAndUpdate(
       { courseId },

@@ -109,19 +109,27 @@ const validateFacultyCreate = [
     .withMessage('Name must be 2-100 characters'),
 
   body('email')
+    .optional({ checkFalsy: true })
     .trim()
+    .if((value) => value && String(value).trim() !== '')
     .isEmail()
     .withMessage('Valid email address is required'),
 
   body('mobile')
+    .optional({ checkFalsy: true })
     .trim()
-    .matches(/^[0-9]{10}$/)
-    .withMessage('Mobile number must be exactly 10 digits'),
+    .if((value) => value && String(value).trim() !== '')
+    .matches(/^[0-9\s\-\+\(\)]{7,15}$/)
+    .withMessage('Mobile number must be 7-15 characters (digits, spaces, hyphens, plus, parentheses)'),
 
   body('designation')
     .trim()
     .notEmpty()
     .withMessage('Designation is required'),
+
+  body('department')
+    .optional({ checkFalsy: true })
+    .trim(),
 
   handleValidationErrors,
 ];
@@ -176,23 +184,62 @@ const validateFacultyUpdate = [
  */
 
 const validateCourseCreate = [
-  body('code')
+  body('program')
     .trim()
     .notEmpty()
-    .withMessage('Course code is required')
+    .withMessage('Program is required')
+    .isIn(['B.Tech', 'M.Tech'])
+    .withMessage('Program must be B.Tech or M.Tech'),
+
+  body('courseType')
+    .trim()
+    .notEmpty()
+    .withMessage('Course type is required'),
+
+  body('subjectCode')
+    .trim()
+    .notEmpty()
+    .withMessage('Subject code is required')
     .isLength({ min: 2, max: 20 })
-    .withMessage('Course code must be 2-20 characters'),
+    .withMessage('Subject code must be 2-20 characters'),
 
-  body('name')
+  body('subjectName')
     .trim()
     .notEmpty()
-    .withMessage('Course name is required')
+    .withMessage('Subject name is required')
     .isLength({ min: 3, max: 200 })
-    .withMessage('Course name must be 3-200 characters'),
+    .withMessage('Subject name must be 3-200 characters'),
 
-  body('credits')
+  body('shortName')
+    .trim()
+    .notEmpty()
+    .withMessage('Short name is required')
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Short name must be 2-50 characters'),
+
+  body('L')
+    .toInt()
+    .isInt({ min: 0, max: 10 })
+    .withMessage('Lecture hours (L) must be 0-10'),
+
+  body('T')
+    .toInt()
+    .isInt({ min: 0, max: 10 })
+    .withMessage('Tutorial hours (T) must be 0-10'),
+
+  body('P')
+    .toInt()
+    .isInt({ min: 0, max: 10 })
+    .withMessage('Practical hours (P) must be 0-10'),
+
+  body('C')
+    .toInt()
     .isInt({ min: 0, max: 5 })
-    .withMessage('Credits must be 0-5'),
+    .withMessage('Credits (C) must be 0-5'),
+
+  body('year')
+    .optional({ checkFalsy: true })
+    .trim(),
 
   handleValidationErrors,
 ];

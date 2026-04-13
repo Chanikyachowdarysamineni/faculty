@@ -13,8 +13,8 @@ const express      = require('express');
 const cors         = require('cors');
 const morgan       = require('morgan');
 const helmet       = require('helmet');
-const rateLimit    = require('express-rate-limit');
 const errorHandler = require('./middleware/errorHandler');
+const { initializeRedis, apiLimiter, strictLimiter } = require('./middleware/rateLimiters');
 
 // ── Import routes ──────────────────────────────────────────
 const authRoutes        = require('./routes/auth');
@@ -153,38 +153,15 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
 // ── Rate Limiting ──────────────────────────────────────────
-// General API limiter (all endpoints)
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,  // 15 minutes
-  max: 1000,                  // 1000 requests per window
-  standardHeaders: true,      // Return rate limit info in headers
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'Too many requests. Please try again later.',
-  },
-  skip: (req) => {
-    // Don't rate limit health checks
-    return req.path === '/api/health';
-  },
+// Initialize Redis for distributed rate limiting (optional, falls back to memory)
+initializeRedis().catch((err) => {
+  console.warn('Redis initialization failed, using memory-based rate limiting:', err.message);
 });
 
-// Strict limiter for sensitive operations (workloads, faculty management)
-const strictLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,   // 1 hour
-  max: 50,                     // 50 requests per window
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'You have exceeded the rate limit for this operation. Please try again later.',
-  },
-});
-
-// Apply general limiter to all API routes
+// Apply general API limiter to all /deva/ routes
 app.use('/deva/', apiLimiter);
 
-// Apply strict limiter to sensitive endpoints (add more as needed)
+// Apply strict limiter to sensitive write operations
 app.use('/deva/workloads', (req, res, next) => {
   if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
     return strictLimiter(req, res, next);

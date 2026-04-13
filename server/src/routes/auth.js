@@ -14,7 +14,6 @@ const express  = require('express');
 const bcrypt   = require('bcryptjs');
 const crypto   = require('crypto');
 const nodemailer = require('nodemailer');
-const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
 const User     = require('../models/User');
 const PasswordResetToken = require('../models/PasswordResetToken');
@@ -24,28 +23,14 @@ const { logAuditEvent, getIp } = require('../utils/audit');
 const { sendSuccess, sendError, sendUnauthorized, sendValidationError } = require('../utils/response');
 const logger = require('../utils/logger');
 const { validateLogin, validatePasswordReset, validateChangePassword } = require('../middleware/validators');
+const { loginLimiter, passwordResetLimiter } = require('../middleware/rateLimiters');
+const { isAdminEmployeeId } = require('../config/adminConfig');
 
 const router = express.Router();
 
 const MAX_FAILED_LOGIN_ATTEMPTS = Number(process.env.MAX_FAILED_LOGIN_ATTEMPTS || 5);
 const ACCOUNT_LOCK_MINUTES = Number(process.env.ACCOUNT_LOCK_MINUTES || 15);
 const RESET_TOKEN_TTL_MINUTES = Number(process.env.RESET_TOKEN_TTL_MINUTES || 30);
-
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: Number(process.env.AUTH_LOGIN_RATE_LIMIT || 10),
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, message: 'Too many login attempts. Please try again later.' },
-});
-
-const passwordResetLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, message: 'Too many password reset requests. Please try again later.' },
-});
 
 // ── Email transport (configured via env vars) ──────────────
 const createMailTransport = () => {
@@ -140,11 +125,18 @@ router.post(
         );
       }
 
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // Security: Check if this employee ID should have admin access
+      // Admin roles are assigned server-side only, not from database or frontend
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      const isAdminUser = isAdminEmployeeId(user.empId);
+      const userRole = isAdminUser ? 'admin' : user.role;
+
       const payload = {
         id:             user.empId,
-        role:           user.role,
+        role:           userRole,
         name:           user.name,
-        canAccessAdmin: user.canAccessAdmin,
+        canAccessAdmin: user.canAccessAdmin || isAdminUser,
       };
       const token = signToken(payload);
 
@@ -161,8 +153,8 @@ router.post(
         }
       );
 
-      logger.info('User logged in successfully', { empId: user.empId, role: user.role, ip: getIp(req) });
-      await logAuditEvent({ req, action: 'auth.login.success', entity: 'user', entityId: user.empId, metadata: { ip: getIp(req) } });
+      logger.info('User logged in successfully', { empId: user.empId, role: userRole, isAdmin: isAdminUser, ip: getIp(req) });
+      await logAuditEvent({ req, action: 'auth.login.success', entity: 'user', entityId: user.empId, metadata: { ip: getIp(req), role: userRole, isAdmin: isAdminUser } });
       return sendSuccess(res, { token, user: payload }, 200, { message: 'Login successful' });
     } catch (err) {
       logger.error('Login error', { error: err.message });

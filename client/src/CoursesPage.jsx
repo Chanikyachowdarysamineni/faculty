@@ -28,7 +28,7 @@ const emptyCourseForm = {
 
 // ── CoursesPage ────────────────────────────────────────────────
 const CoursesPage = ({ isAdmin = true }) => {
-  const { courses: contextCourses } = useSharedData();
+  const { courses: contextCourses, setCourses: setContextCourses } = useSharedData();
   
   // ── Data state ──
   const [courseList, setCourseList]   = useState([]);
@@ -59,6 +59,25 @@ const CoursesPage = ({ isAdmin = true }) => {
   const authHeaders = () => ({
     ...authJsonHeaders(),
   });
+
+  // ── Fetch courses from API ──
+  const fetchCourses = useCallback(async () => {
+    try {
+      setLoadingCourses(true);
+      const data = await fetchAllPages('/deva/courses', {}, { headers: authHeaders() });
+      if (data?.success && Array.isArray(data.data)) {
+        setCourseList(data.data);
+        setContextCourses(data.data);
+      } else {
+        showToast('Failed to refresh courses list');
+      }
+    } catch (error) {
+      showToast('Error loading courses');
+      console.error('Failed to fetch courses:', error);
+    } finally {
+      setLoadingCourses(false);
+    }
+  }, [authHeaders, setContextCourses, showToast]);
 
   // ── Derived lists ──
   const filteredCourses = useMemo(() => {
@@ -136,11 +155,16 @@ const CoursesPage = ({ isAdmin = true }) => {
         showToast(data.message || 'Could not save course.');
         return;
       }
+      
+      // Refresh the course list from server to ensure consistency
       await fetchCourses();
       showToast(editCourse ? 'Course updated successfully.' : 'Course added successfully.');
       setShowCourseModal(false);
-    } catch {
+      setCourseForm({ ...emptyCourseForm });
+      setEditCourse(null);
+    } catch (error) {
       showToast('Network error while saving course.');
+      console.error('Error saving course:', error);
     }
   };
 
@@ -155,11 +179,14 @@ const CoursesPage = ({ isAdmin = true }) => {
         showToast(data.message || 'Could not delete course.');
         return;
       }
+      
+      // Refresh the course list from server
       await fetchCourses();
-        showToast('Course deleted.');
+      showToast('Course deleted successfully.');
       setDeleteCourse(null);
-    } catch {
+    } catch (error) {
       showToast('Network error while deleting course.');
+      console.error('Error deleting course:', error);
     }
   };
 

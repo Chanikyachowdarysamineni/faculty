@@ -12,6 +12,7 @@ import { Navigate } from 'react-router-dom';
 // Import page components
 import LoginPageComponent from './LoginPage';
 import Dashboard from './Dashboard';
+import AdminDashboard from './AdminDashboard';
 import FacultyPage from './FacultyPage';
 import CoursesPage from './CoursesPage';
 import WorkloadPage from './WorkloadPage';
@@ -27,12 +28,16 @@ import ProtectedRoute from './ProtectedRoute';
 
 /**
  * LoginPage Wrapper - Injects onLogin from context
+ * Redirects based on role: admins to /admin-dashboard, others to /
  */
 const LoginPageWrapper = () => {
   const { currentUser, onLogin } = useAuth();
   
-  // Redirect to dashboard if already logged in
+  // Redirect based on role if already logged in
   if (currentUser) {
+    if (currentUser.role === 'admin') {
+      return <Navigate to="/admin-dashboard" replace />;
+    }
     return <Navigate to="/" replace />;
   }
   
@@ -45,6 +50,21 @@ const LoginPageWrapper = () => {
 const DashboardWrapper = () => {
   const { currentUser, onLogout, remainingSeconds } = useAuth();
   return <Dashboard user={currentUser} onLogout={onLogout} remainingSeconds={remainingSeconds} />;
+};
+
+/**
+ * Admin Dashboard Wrapper - Admin-only dashboard
+ * Requires admin role, redirects others to regular dashboard
+ */
+const AdminDashboardWrapper = () => {
+  const { currentUser, onLogout } = useAuth();
+  
+  // Security: Verify role on frontend (server validates on routes)
+  if (!currentUser || currentUser.role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
+  
+  return <AdminDashboard />;
 };
 
 /**
@@ -77,6 +97,11 @@ export const protectedRoutes = [
     path: '/dashboard',
     element: <ProtectedRoute><DashboardWrapper /></ProtectedRoute>,
     title: 'Dashboard'
+  },
+  {
+    path: '/admin-dashboard',
+    element: <ProtectedRoute roles={['admin']}><AdminDashboardWrapper /></ProtectedRoute>,
+    title: 'Admin Dashboard'
   },
   {
     path: '/faculty',
