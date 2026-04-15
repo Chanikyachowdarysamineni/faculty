@@ -29,28 +29,22 @@ const requireAuth = (req, res, next) => {
 };
 
 /**
- * Validate that the user's current token is their active session token.
- * Must be used AFTER requireAuth.
- * Prevents using old/invalidated tokens.
+ * Validate that the user exists (optional check for multi-session support).
+ * JWT tokens are cryptographically signed, so we don't need to check a stored session token.
+ * This allows multiple concurrent logins per user from different devices.
+ * Can be used AFTER requireAuth for extra user validation if needed.
  */
 const validateActiveSession = async (req, res, next) => {
   try {
-    if (!req.user || !req.token) {
-      return res.status(401).json({ success: false, message: 'Session validation failed.' });
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: 'User not authenticated.' });
     }
 
+    // Light-weight validation: just verify user exists
+    // JWT signature validity is already verified by requireAuth
     const user = await User.findOne({ empId: req.user.id });
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found.' });
-    }
-
-    // Check if the provided token matches the active session token
-    if (user.activeSessionToken !== req.token) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Your session has expired or you have logged in from another device. Please log in again.',
-        code: 'SESSION_EXPIRED'
-      });
     }
 
     next();

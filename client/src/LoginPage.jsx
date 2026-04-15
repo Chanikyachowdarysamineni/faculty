@@ -123,10 +123,11 @@ const LoginPage = ({ onLogin }) => {
           <div className="avatar-container">
             <div className="wlm-logo-wrap">
               <img
-                src="/logo.webp"
+                src={`${pub}/logo.webp`}
                 alt="WLM Logo"
                 className={`wlm-logo-img${logoLoaded ? ' wlm-logo-loaded' : ''}`}
                 onLoad={() => setLogoLoaded(true)}
+                onerror="console.error('Logo failed to load from:', this.src)"
                 fetchpriority="high"
               />
             </div>

@@ -14,6 +14,7 @@ import OverloadedFacultyModal from './OverloadedFacultyModal';
 import API                  from './config';
 import { fetchAllPages, fetchJsonWithRetry }    from './utils/apiFetchAll';
 import { fetchSectionsConfig } from './utils/sectionsApi';
+import { logAuthDiagnostics } from './utils/authDiagnostics';
 import { useSharedData } from './DataContext';
 import './Dashboard.css';
 
@@ -213,8 +214,22 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
 
   const isAdmin = dashMode ? (dashMode === 'admin') : (user.role === 'admin' || user.canAccessAdmin === true);
 
-  const token = () => localStorage.getItem('wlm_token') || '';
-  const authHeaders = useCallback(() => ({ Authorization: `Bearer ${token()}` }), []);
+  const token = () => {
+    const t = localStorage.getItem('wlm_token');
+    if (!t) {
+      console.error('[Dashboard] No token in localStorage - user may not be authenticated');
+      logAuthDiagnostics();
+    }
+    return t || '';
+  };
+  const authHeaders = useCallback(() => {
+    const t = token();
+    const headers = { Authorization: `Bearer ${t}` };
+    if (!t) {
+      console.warn('[Dashboard] Creating Authorization header with empty token');
+    }
+    return headers;
+  }, []);
 
   // Use shared data context
   const { setFaculty, setCourses, setAllocations, setSectionsConfig: setSharedSectionsConfig } = useSharedData();
@@ -243,6 +258,13 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
   const refreshSubmissions = useCallback(async () => {
     if (!user?.id) return;
     const headers = { Authorization: `Bearer ${token()}` };
+
+    // Validate token before making requests
+    if (!headers.Authorization.replace('Bearer ', '').trim()) {
+      console.error('[refreshSubmissions] No valid token available');
+      setSubmissionsSyncError('Authentication failed. Please log in again.');
+      return;
+    }
 
     if (isAdmin) {
       try {
@@ -329,12 +351,25 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
 
   const refreshDashboardData = useCallback(async () => {
     if (!isAdmin) return;
+    
+    // Validate token before making requests
+    const headers = authHeaders();
+    if (!headers.Authorization.replace('Bearer ', '').trim()) {
+      console.error('[refreshDashboardData] No valid token available');
+      setDashboardData(prev => ({
+        ...prev,
+        loading: false,
+        error: 'Authentication failed. Please log in again.',
+      }));
+      return;
+    }
+
     setDashboardData(prev => ({ ...prev, loading: true, error: '' }));
     try {
       const [fReq, aReq, cReq] = await Promise.allSettled([
-        fetchAllPages('/deva/faculty', {}, { headers: authHeaders() }),
-        fetchAllPages('/deva/allocations', {}, { headers: authHeaders() }),
-        fetchAllPages('/deva/courses', {}, { headers: authHeaders() }),
+        fetchAllPages('/deva/faculty', {}, { headers }),
+        fetchAllPages('/deva/allocations', {}, { headers }),
+        fetchAllPages('/deva/courses', {}, { headers }),
       ]);
 
       const nextData = {};
@@ -412,10 +447,19 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
 
   const refreshMasterData = useCallback(async () => {
     if (!user?.id) return;
+    
+    // Validate token before making requests
+    const headers = authHeaders();
+    if (!headers.Authorization.replace('Bearer ', '').trim()) {
+      console.error('[refreshMasterData] No valid token available');
+      setDashboardSyncError('Authentication failed. Please log in again.');
+      return;
+    }
+
     try {
       const [fReq, cReq] = await Promise.allSettled([
-        fetchAllPages('/deva/faculty', {}, { headers: authHeaders() }),
-        fetchAllPages('/deva/courses', {}, { headers: authHeaders() }),
+        fetchAllPages('/deva/faculty', {}, { headers }),
+        fetchAllPages('/deva/courses', {}, { headers }),
       ]);
 
       const facultyOk = fReq.status === 'fulfilled' && fReq.value?.success;
@@ -480,10 +524,22 @@ const Dashboard = ({ user, onLogout, remainingSeconds = 1800 }) => {
 
   const fetchIntegrity = useCallback(async () => {
     if (!isAdmin) return;
+    
+    // Validate token before making requests
+    const headers = authHeaders();
+    if (!headers.Authorization.replace('Bearer ', '').trim()) {
+      console.error('[fetchIntegrity] No valid token available');
+      setIntegrityError('Authentication failed. Please log in again.');
+      return;
+    }
+
     setIntegrityLoading(true);
     setIntegrityError('');
     try {
-      const res = await fetch(`${API}/deva/stats/integrity`, { headers: authHeaders() });
+      const res = await fetch(`${API}/deva/stats/integrity`, { 
+        method: 'GET',
+        headers 
+      });
       const data = await res.json();
       if (data.success) {
         setIntegrityData(data.data);

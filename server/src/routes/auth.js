@@ -140,13 +140,12 @@ router.post(
       };
       const token = signToken(payload);
 
-      // Store the active session token (invalidates any previous session)
+      // Track login info for audit/security logs (no session token storage needed)
+      // Multiple concurrent sessions per user are allowed
       await User.updateOne(
         { _id: user._id },
         {
           $set: {
-            activeSessionToken: token,
-            sessionIssuedAt: new Date(),
             lastLoginIp: getIp(req),
             lastLoginAt: new Date(),
           },
@@ -265,7 +264,6 @@ router.post(
 router.put(
   '/change-password',
   requireAuth,
-  validateActiveSession,
   validateChangePassword,
   async (req, res, next) => {
     try {
@@ -297,7 +295,7 @@ router.put(
 // ─────────────────────────────────────────────────────────
 //  GET /api/auth/me
 // ─────────────────────────────────────────────────────────
-router.get('/me', requireAuth, validateActiveSession, async (req, res, next) => {
+router.get('/me', requireAuth, async (req, res, next) => {
   try {
     const { id, role, name, canAccessAdmin } = req.user;
     let extra = {};
@@ -314,23 +312,13 @@ router.get('/me', requireAuth, validateActiveSession, async (req, res, next) => 
 // ─────────────────────────────────────────────────────────
 //  POST /api/auth/logout  (requires auth)
 // ─────────────────────────────────────────────────────────
-router.post('/logout', requireAuth, validateActiveSession, async (req, res, next) => {
+router.post('/logout', requireAuth, async (req, res, next) => {
   try {
     if (!req.user || !req.user.id) {
       return sendError(res, 'User not authenticated.', 401);
     }
 
-    // Clear the active session token
-    await User.updateOne(
-      { empId: req.user.id },
-      {
-        $set: {
-          activeSessionToken: null,
-          sessionIssuedAt: null,
-        },
-      }
-    );
-
+    // Log the logout event (no session token clearing needed for multi-session support)
     logger.info('User logged out successfully', { empId: req.user.id });
     await logAuditEvent({ req, action: 'auth.logout', entity: 'user', entityId: req.user.id });
     return sendSuccess(res, null, 200, { message: 'Logged out successfully.' });

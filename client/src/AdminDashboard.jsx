@@ -3,9 +3,10 @@
  * 
  * Admin-only dashboard accessible to users with admin role
  * Shows admin-specific features and management options
+ * Fully responsive with mobile sidebar toggle
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import PageHeader from './components/PageHeader';
@@ -15,11 +16,35 @@ const AdminDashboard = () => {
   const { currentUser, onLogout } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = () => {
     onLogout();
     navigate('/login');
   };
+
+  // Close sidebar when a nav item is clicked on mobile
+  const handleNavClick = (tab, path) => {
+    setActiveTab(tab);
+    setSidebarOpen(false);
+    if (path) navigate(path);
+  };
+
+  // Close sidebar when clicking overlay on mobile
+  const handleSidebarOverlayClick = () => {
+    setSidebarOpen(false);
+  };
+
+  // Close sidebar on screen resize to desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 768) {
+        setSidebarOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Redirect to login if not authenticated or not admin
   if (!currentUser) {
@@ -38,53 +63,62 @@ const AdminDashboard = () => {
         user={currentUser} 
         onLogout={handleLogout}
         isAdmin={true}
+        onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
       />
 
       <div className="dashboard-content">
-        <aside className="sidebar">
+        {/* Mobile sidebar overlay */}
+        {sidebarOpen && (
+          <div 
+            className="sidebar-overlay open"
+            onClick={handleSidebarOverlayClick}
+          />
+        )}
+
+        <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
           <nav className="sidebar-nav">
             <h3 className="sidebar-title">Admin Panel</h3>
             
             <div className="nav-section">
               <button
                 className={`nav-link ${activeTab === 'overview' ? 'active' : ''}`}
-                onClick={() => setActiveTab('overview')}
+                onClick={() => handleNavClick('overview')}
               >
                 📊 Overview
               </button>
               <button
                 className={`nav-link ${activeTab === 'faculty' ? 'active' : ''}`}
-                onClick={() => { setActiveTab('faculty'); navigate('/faculty'); }}
+                onClick={() => handleNavClick('faculty', '/faculty')}
               >
                 👥 Manage Faculty
               </button>
               <button
                 className={`nav-link ${activeTab === 'courses' ? 'active' : ''}`}
-                onClick={() => { setActiveTab('courses'); navigate('/courses'); }}
+                onClick={() => handleNavClick('courses', '/courses')}
               >
                 📚 Manage Courses
               </button>
               <button
                 className={`nav-link ${activeTab === 'workload' ? 'active' : ''}`}
-                onClick={() => { setActiveTab('workload'); navigate('/workload'); }}
+                onClick={() => handleNavClick('workload', '/workload')}
               >
                 💼 Workload Management
               </button>
               <button
                 className={`nav-link ${activeTab === 'audit' ? 'active' : ''}`}
-                onClick={() => { setActiveTab('audit'); navigate('/audit-logs'); }}
+                onClick={() => handleNavClick('audit', '/audit-logs')}
               >
                 📋 Audit Logs
               </button>
               <button
                 className={`nav-link ${activeTab === 'sections' ? 'active' : ''}`}
-                onClick={() => { setActiveTab('sections'); navigate('/sections'); }}
+                onClick={() => handleNavClick('sections', '/sections')}
               >
                 🎓 Section Management
               </button>
               <button
                 className={`nav-link ${activeTab === 'settings' ? 'active' : ''}`}
-                onClick={() => { setActiveTab('settings'); navigate('/settings'); }}
+                onClick={() => handleNavClick('settings', '/settings')}
               >
                 ⚙️ Settings
               </button>

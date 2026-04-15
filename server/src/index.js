@@ -9,6 +9,22 @@
 'use strict';
 
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+
+// ── Validate Required Environment Variables ────────────────
+const requiredEnvVars = ['MONGO_URI', 'JWT_SECRET', 'CLIENT_ORIGIN'];
+const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+
+if (missingEnvVars.length > 0) {
+  console.error(`❌  MISSING REQUIRED ENVIRONMENT VARIABLES: ${missingEnvVars.join(', ')}`);
+  console.error('Please ensure all required variables are set in .env file');
+  process.exit(1);
+}
+
+// Warn if NODE_ENV is not production in production-like environment
+if (process.env.MONGO_URI?.includes('mongodb') && process.env.NODE_ENV !== 'production') {
+  console.warn('⚠️  NODE_ENV is not set to "production" - consider setting it for better performance');
+}
+
 const express      = require('express');
 const cors         = require('cors');
 const morgan       = require('morgan');

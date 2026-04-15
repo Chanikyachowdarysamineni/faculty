@@ -143,6 +143,7 @@ const FacultyPage = ({ isAdmin = false }) => {
       department: form.department || 'CSE',
     };
     try {
+      console.log('[FacultyPage] Saving faculty:', { isEdit: !!editTarget, payload });
       const res = await fetch(
         editTarget ? `${API}/deva/faculty/${encodeURIComponent(editTarget.empId)}` : `${API}/deva/faculty`,
         {
@@ -152,6 +153,7 @@ const FacultyPage = ({ isAdmin = false }) => {
         }
       );
       const data = await res.json();
+      console.log('[FacultyPage] Response:', { status: res.status, ok: res.ok, success: data?.success, message: data?.message });
       if (!res.ok || !data?.success) {
         showToast(data?.message || 'Could not save faculty record.');
         return;
@@ -172,7 +174,8 @@ const FacultyPage = ({ isAdmin = false }) => {
       setFaculty(updatedList);
       showToast(editTarget ? 'Faculty updated successfully.' : 'Faculty added successfully.');
       setShowModal(false);
-    } catch {
+    } catch (err) {
+      console.error('[FacultyPage] Error saving faculty:', err.message, err);
       showToast('Network error while saving faculty record.');
     }
   };

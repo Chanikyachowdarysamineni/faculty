@@ -15,9 +15,7 @@ const userSchema = new mongoose.Schema(
     canAccessAdmin: { type: Boolean, default: false },
     failedLoginAttempts: { type: Number, default: 0 },
     lockUntil: { type: Date, default: null },
-    // Session management - single active session per user
-    activeSessionToken: { type: String, default: null },
-    sessionIssuedAt: { type: Date, default: null },
+    // Login tracking for audit logs (multi-session support enabled)
     lastLoginIp: { type: String, default: null },
     lastLoginAt: { type: Date, default: null },
   },

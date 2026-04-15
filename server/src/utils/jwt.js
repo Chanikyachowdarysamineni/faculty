@@ -1,8 +1,7 @@
 /**
  * utils/jwt.js — sign & verify JSON Web Tokens
  * 
- * ⚠️  AUTHENTICATION DISABLED FOR DEVELOPMENT
- * JWT signing/verification is bypassed. All requests use default dev user.
+ * JWT signing and verification are active and required for all authenticated requests.
  */
 
 'use strict';
@@ -10,15 +9,21 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
 const jwt = require('jsonwebtoken');
 
-// ⚠️  JWT authentication is disabled - use dummy secret for compatibility
-const SECRET  = process.env.JWT_SECRET || 'dev-secret-disabled-for-testing';
-const EXPIRES = process.env.JWT_EXPIRES_IN || '8h';
-
-// Stub validation - no-op
+// Validate JWT secret is configured (required for production)
 const validateJwtSecret = () => {
-  console.log('ℹ️  JWT validation disabled (development mode)');
-  return SECRET;
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    console.error('❌  JWT_SECRET is not configured in .env');
+    throw new Error('JWT_SECRET environment variable is required');
+  }
+  if (secret.length < 32) {
+    console.warn('⚠️  JWT_SECRET is less than 32 characters - not recommended for production');
+  }
+  return secret;
 };
+
+const SECRET  = validateJwtSecret();
+const EXPIRES = process.env.JWT_EXPIRES_IN || '8h';
 
 /**
  * Create a signed JWT for a user.

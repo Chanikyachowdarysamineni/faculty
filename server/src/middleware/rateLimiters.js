@@ -1,11 +1,29 @@
 /**
  * middleware/rateLimiters.js
  * 
- * Centralized rate limiter configuration with Redis backend for production.
+ * Rate limiter configuration with Redis backend for production.
  * Falls back to memory-based limiting when Redis is unavailable (development).
  * 
- * Redis safely handles concurrent requests across multiple server instances.
- * Memory store is OK for single-server development but loses limit state on crash.
+ * DISABLE FOR TESTING:
+ * Set environment variable: DISABLE_RATE_LIMIT=true
+ * This disables ALL rate limiting for easier development/testing
+ * 
+ * PRODUCTION CONFIGURATION:
+ * Set AUTH_LOGIN_RATE_LIMIT, API_RATE_LIMIT, STRICT_RATE_LIMIT, etc. as needed
+ * Each limiter can be independently adjusted via environment variables
+ * 
+ * REDIS BACKEND:
+ * Set REDIS_URL environment variable for distributed rate limiting
+ * Example: REDIS_URL=redis://:password@hostname:port
+ * This disables ALL rate limiting for easier development/testing
+ * 
+ * PRODUCTION CONFIGURATION:
+ * Set AUTH_LOGIN_RATE_LIMIT, API_RATE_LIMIT, STRICT_RATE_LIMIT, etc. as needed
+ * Each limiter can be independently adjusted via environment variables
+ * 
+ * REDIS BACKEND:
+ * Set REDIS_URL environment variable for distributed rate limiting
+ * Example: REDIS_URL=redis://:password@hostname:port
  */
 
 'use strict';
@@ -118,21 +136,30 @@ const createLimiter = (options) => {
   const windowMs = options.windowMs || 15 * 60 * 1000;
   const prefix = options.prefix || 'default';
   
+  // Allow disabling rate limiting via environment variable
+  const disableLimiting = process.env.DISABLE_RATE_LIMIT === 'true';
+  
+  // Extract options that shouldn't be passed to rateLimit
+  const { skip, message, handler, prefix: _prefix, ...rateLimitOptions } = options;
+  
+  // If rate limiting is disabled, return a no-op middleware
+  if (disableLimiting) {
+    return (req, res, next) => next();
+  }
+  
   const baseConfig = {
     windowMs: windowMs,
+    max: rateLimitOptions.max || 100,
     standardHeaders: true,
     legacyHeaders: false,
-    // Handle distributed load: IP from proxy headers (e.g., X-Forwarded-For)
-    keyGenerator: (req) => {
-      return req.ip || req.connection.remoteAddress || 'unknown';
-    },
-    skip: options.skip || (() => false),
-    message: options.message || {
+    // Use default IP detection (handles IPv6 correctly)
+    skip: skip || (() => false),
+    message: message || {
       success: false,
       message: 'Too many requests. Please try again later.',
     },
-    handler: options.handler,
-    ...options,
+    handler: handler,
+    ...rateLimitOptions,
   };
 
   // Use Redis store if connected
@@ -147,19 +174,18 @@ const createLimiter = (options) => {
 /**
  * LOGIN LIMITER
  * 
- * Purpose: Allow legitimate faculty to log in during peak times (e.g., 200+ concurrent)
+ * Purpose: Allow legitimate faculty to log in during peak times
  * 
  * Config:
- * - Window: 1 hour (allows login recovery)
+ * - Window: 1 hour
  * - Max: 500 per IP per hour (supports concurrent device logins + retries)
- * - Per user: Applied globally (IP-based), not per-user account
+ * - Can be disabled with DISABLE_RATE_LIMIT=true for testing
  * 
  * Why 500?
  * - Typical login flow: 1-2 requests per user
- * - 200 concurrent = ~400-800 from unique IPs
+ * - 200+ concurrent users: ~400-800 unique IPs
  * - Retries for network issues: +20%
- * - Passwordreset + retry flows: +50
- * - Safety margin: 500 handles all scenarios
+ * - Safety margin: handles all scenarios
  */
 const loginLimiter = createLimiter({
   windowMs: 60 * 60 * 1000,  // 1 hour
@@ -179,12 +205,12 @@ const loginLimiter = createLimiter({
  * 
  * Config:
  * - Window: 15 minutes
- * - Max: 10 requests per IP per window
- * - Strict but allows legitimate users + admin password resets
+ * - Max: 20 requests per IP per window (allows retries)
+ * - Can be disabled with DISABLE_RATE_LIMIT=true
  */
 const passwordResetLimiter = createLimiter({
   windowMs: 15 * 60 * 1000,  // 15 minutes
-  max: Number(process.env.AUTH_PASSWORD_RESET_RATE_LIMIT || 10),
+  max: Number(process.env.AUTH_PASSWORD_RESET_RATE_LIMIT || 20),
   message: {
     success: false,
     message: 'Too many password reset requests. Please try again in 15 minutes.',
@@ -199,12 +225,16 @@ const passwordResetLimiter = createLimiter({
  * 
  * Config:
  * - Window: 15 minutes
- * - Max: 1000 requests per IP per window
+ * - Max: 2000 requests per IP per window (very generous for testing)
  * - Applied globally, but specific endpoints use stricter limiters
+ * - Skips health checks
+ * 
+ * Development Note:
+ * Disable with: DISABLE_RATE_LIMIT=true
  */
 const apiLimiter = createLimiter({
   windowMs: 15 * 60 * 1000,  // 15 minutes
-  max: Number(process.env.API_RATE_LIMIT || 1000),
+  max: Number(process.env.API_RATE_LIMIT || 2000),
   message: {
     success: false,
     message: 'Too many requests. Please try again later.',
@@ -223,15 +253,16 @@ const apiLimiter = createLimiter({
  * 
  * Config:
  * - Window: 1 hour
- * - Max: 100 per IP per hour
+ * - Max: 500 per IP per hour (allows ~8 per minute - very generous)
  * - Applied only to POST/PUT/DELETE on sensitive routes
+ * - Development: Can be disabled with DISABLE_RATE_LIMIT=true
  */
 const strictLimiter = createLimiter({
   windowMs: 60 * 60 * 1000,    // 1 hour
-  max: Number(process.env.STRICT_RATE_LIMIT || 100),
+  max: Number(process.env.STRICT_RATE_LIMIT || 500),
   message: {
     success: false,
-    message: 'Too many requests for this operation. Please try again after an hour.',
+    message: 'Too many requests for this operation. Please try again later.',
   },
   prefix: 'sensitive',
 });
@@ -243,29 +274,18 @@ const strictLimiter = createLimiter({
  * 
  * Config:
  * - Window: 1 hour
- * - Max: 20 exports per IP per hour
- * - Per-user and aggregate protection
+ * - Max: 50 exports per IP per hour (very generous for testing)
+ * - Prevents abuse of data export features
  */
 const exportLimiter = createLimiter({
   windowMs: 60 * 60 * 1000,    // 1 hour
-  max: Number(process.env.EXPORT_RATE_LIMIT || 20),
+  max: Number(process.env.EXPORT_RATE_LIMIT || 50),
   message: {
     success: false,
     message: 'Too many export requests. Please try again after an hour.',
   },
   prefix: 'export',
 });
-
-module.exports = {
-  initializeRedis,
-  loginLimiter,
-  passwordResetLimiter,
-  apiLimiter,
-  strictLimiter,
-  exportLimiter,
-  // Utility for creating custom limiters
-  createLimiter,
-};
 
 module.exports = {
   initializeRedis,

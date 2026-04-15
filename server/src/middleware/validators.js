@@ -98,8 +98,8 @@ const validateFacultyCreate = [
     .trim()
     .notEmpty()
     .withMessage('Employee ID is required')
-    .matches(/^[A-Z0-9]{3,10}$/)
-    .withMessage('Employee ID must be 3-10 alphanumeric characters (uppercase)'),
+    .matches(/^[A-Za-z0-9\-_\.@]{3,20}$/)
+    .withMessage('Employee ID must be 3-20 characters (alphanumeric, hyphens, underscores, periods, @ allowed)'),
 
   body('name')
     .trim()

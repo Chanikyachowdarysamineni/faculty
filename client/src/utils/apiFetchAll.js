@@ -37,10 +37,17 @@ const toQueryString = (params = {}) => {
   return q.toString();
 };
 
-export const authJsonHeaders = () => ({
-  Authorization: `Bearer ${localStorage.getItem('wlm_token') || ''}`,
-  'Content-Type': 'application/json',
-});
+export const authJsonHeaders = () => {
+  const token = localStorage.getItem('wlm_token');
+  // Ensure we always have a valid Bearer token
+  if (!token || token.trim() === '') {
+    console.warn('[Auth] No valid token found in localStorage');
+  }
+  return {
+    Authorization: `Bearer ${token || ''}`,
+    'Content-Type': 'application/json',
+  };
+};
 
 export const fetchJsonWithRetry = async (url, options = {}) => {
   const timeoutMs = Number(options.timeoutMs || DEFAULT_TIMEOUT_MS);
@@ -48,11 +55,15 @@ export const fetchJsonWithRetry = async (url, options = {}) => {
   const retryDelayMs = Number(options.retryDelayMs || DEFAULT_RETRY_DELAY_MS);
   const silentMode = options.silentMode === true; // Suppress logs and retries for expected 404s
 
-  // Merge provided headers with default auth headers
-  const baseHeaders = {
-    ...authJsonHeaders(),
-    ...(options.headers || {}),
-  };
+  // If explicit headers are provided, use them; otherwise create auth headers
+  // But ensure Authorization is always present
+  let baseHeaders = options.headers ? { ...options.headers } : authJsonHeaders();
+  
+  // Ensure Authorization header is present if not already in provided headers
+  if (!baseHeaders.Authorization) {
+    baseHeaders.Authorization = `Bearer ${localStorage.getItem('wlm_token') || ''}`;
+  }
+  
   const getHeaders = { ...baseHeaders };
   if ('Content-Type' in getHeaders) delete getHeaders['Content-Type'];
   if ('content-type' in getHeaders) delete getHeaders['content-type'];
@@ -137,10 +148,17 @@ export const fetchJsonWithRetry = async (url, options = {}) => {
 export const fetchAllPages = async (path, params = {}, options = {}) => {
   const pageSize = Number(options.pageSize || 1000);
   const maxPages = Number(options.maxPages || 20);
+  // If headers are provided, use them; otherwise use default auth headers
   const headers = options.headers || authJsonHeaders();
   const timeoutMs = Number(options.timeoutMs || DEFAULT_TIMEOUT_MS);
   const retries = Number(options.retries ?? DEFAULT_RETRIES);
   const retryDelayMs = Number(options.retryDelayMs || DEFAULT_RETRY_DELAY_MS);
+
+  // Ensure Authorization header is present
+  if (!headers.Authorization) {
+    console.warn('[fetchAllPages] Missing Authorization header, adding default');
+    headers.Authorization = `Bearer ${localStorage.getItem('wlm_token') || ''}`;
+  }
 
   let page = 1;
   let pages = 1;
