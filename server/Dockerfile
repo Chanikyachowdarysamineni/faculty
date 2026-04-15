@@ -1,24 +1,24 @@
-# Node.js LTS with Alpine Linux for small image size
 FROM node:20-alpine
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files
+# Install only production dependencies first for better layer caching.
 COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 
-# Install dependencies with production flag
-RUN npm ci --only=production
+# Copy runtime source files.
+COPY --chown=node:node src ./src
+COPY --chown=node:node scripts ./scripts
+COPY --chown=node:node seeds ./seeds
 
-# Copy application code
-COPY src ./src
+ENV NODE_ENV=production
+ENV PORT=5000
 
-# Expose port 5000
 EXPOSE 5000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:5000/deva/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:5000/deva/health >/dev/null || exit 1
 
-# Start application
+USER node
+
 CMD ["node", "src/index.js"]

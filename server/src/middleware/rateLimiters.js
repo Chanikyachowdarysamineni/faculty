@@ -31,9 +31,40 @@
 const rateLimit = require('express-rate-limit');
 const redis = require('redis');
 const logger = require('../utils/logger');
+const { verifyToken } = require('../utils/jwt');
 
 let redisClient = null;
 let useRedis = false;
+
+const normalizeIdentity = (value = '') =>
+  String(value || '').trim().toLowerCase();
+
+const tokenFromRequest = (req) => {
+  const header = req?.headers?.authorization || '';
+  return header.startsWith('Bearer ') ? header.slice(7) : '';
+};
+
+const getUserIdFromToken = (req) => {
+  const token = tokenFromRequest(req);
+  if (!token) return '';
+  try {
+    const payload = verifyToken(token);
+    return normalizeIdentity(payload?.id);
+  } catch {
+    return '';
+  }
+};
+
+const getEmployeeIdFromBody = (req) =>
+  normalizeIdentity(req?.body?.employeeId || req?.body?.empId || '');
+
+const userAwareKey = (req, prefix = 'api') => {
+  const userId = getUserIdFromToken(req);
+  if (userId) return `${prefix}:user:${userId}`;
+  const empId = getEmployeeIdFromBody(req);
+  if (empId) return `${prefix}:emp:${empId}`;
+  return `${prefix}:ip:${req.ip}`;
+};
 
 /**
  * Redis Store for express-rate-limit
@@ -156,7 +187,7 @@ const createLimiter = (options) => {
     skip: skip || (() => false),
     message: message || {
       success: false,
-      message: 'Too many requests. Please try again later.',
+      message: 'Request could not be processed at this time.',
     },
     handler: handler,
     ...rateLimitOptions,
@@ -190,12 +221,18 @@ const createLimiter = (options) => {
 const loginLimiter = createLimiter({
   windowMs: 60 * 60 * 1000,  // 1 hour
   max: Number(process.env.AUTH_LOGIN_RATE_LIMIT || 500),
+  keyGenerator: (req) => {
+    const empId = getEmployeeIdFromBody(req);
+    // Keep a light IP signal to reduce brute-force abuse while preventing shared-WiFi lockouts.
+    return empId ? `login:emp:${empId}:ip:${req.ip}` : `login:ip:${req.ip}`;
+  },
   message: {
     success: false,
-    message: 'Too many login attempts from this IP. Please try again after an hour.',
+    message: 'Login request could not be processed at this time.',
   },
   prefix: 'login',
-  skip: (req) => false,
+  // Campus/shared-WiFi safe mode: keep login open (no auth endpoint throttling).
+  skip: () => true,
 });
 
 /**
@@ -211,11 +248,17 @@ const loginLimiter = createLimiter({
 const passwordResetLimiter = createLimiter({
   windowMs: 15 * 60 * 1000,  // 15 minutes
   max: Number(process.env.AUTH_PASSWORD_RESET_RATE_LIMIT || 20),
+  keyGenerator: (req) => {
+    const empId = getEmployeeIdFromBody(req);
+    return empId ? `pwd-reset:emp:${empId}` : `pwd-reset:ip:${req.ip}`;
+  },
   message: {
     success: false,
-    message: 'Too many password reset requests. Please try again in 15 minutes.',
+    message: 'Password reset request could not be processed at this time.',
   },
   prefix: 'password-reset',
+  // Keep forgot/reset endpoints open to avoid shared-network false positives.
+  skip: () => true,
 });
 
 /**
@@ -235,14 +278,20 @@ const passwordResetLimiter = createLimiter({
 const apiLimiter = createLimiter({
   windowMs: 15 * 60 * 1000,  // 15 minutes
   max: Number(process.env.API_RATE_LIMIT || 2000),
+  keyGenerator: (req) => userAwareKey(req, 'api'),
   message: {
     success: false,
-    message: 'Too many requests. Please try again later.',
+    message: 'Request could not be processed at this time.',
   },
   prefix: 'api',
   skip: (req) => {
     // Don't rate limit health checks or system endpoints
-    return req.path === '/api/health' || req.path === '/health' || req.path === '/deva/health';
+    return req.path === '/api/health'
+      || req.path === '/health'
+      || req.path === '/deva/health'
+      || req.path === '/auth/login'
+      || req.path === '/auth/forgot-password'
+      || req.path === '/auth/reset-password';
   },
 });
 
@@ -260,9 +309,10 @@ const apiLimiter = createLimiter({
 const strictLimiter = createLimiter({
   windowMs: 60 * 60 * 1000,    // 1 hour
   max: Number(process.env.STRICT_RATE_LIMIT || 500),
+  keyGenerator: (req) => userAwareKey(req, 'strict'),
   message: {
     success: false,
-    message: 'Too many requests for this operation. Please try again later.',
+    message: 'Operation request could not be processed at this time.',
   },
   prefix: 'sensitive',
 });
@@ -280,9 +330,10 @@ const strictLimiter = createLimiter({
 const exportLimiter = createLimiter({
   windowMs: 60 * 60 * 1000,    // 1 hour
   max: Number(process.env.EXPORT_RATE_LIMIT || 50),
+  keyGenerator: (req) => userAwareKey(req, 'export'),
   message: {
     success: false,
-    message: 'Too many export requests. Please try again after an hour.',
+    message: 'Export request could not be processed at this time.',
   },
   prefix: 'export',
 });

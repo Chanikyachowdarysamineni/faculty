@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE = 'https://faculty-workload-management-cse.onrender.com';
+const DEFAULT_API_BASE = 'http://160.187.169.41';
 
 const LEGACY_API_HOSTS = [
 	'http://wlm-server.onrender.com',

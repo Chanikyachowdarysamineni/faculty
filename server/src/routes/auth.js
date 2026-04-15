@@ -28,8 +28,6 @@ const { isAdminEmployeeId } = require('../config/adminConfig');
 
 const router = express.Router();
 
-const MAX_FAILED_LOGIN_ATTEMPTS = Number(process.env.MAX_FAILED_LOGIN_ATTEMPTS || 5);
-const ACCOUNT_LOCK_MINUTES = Number(process.env.ACCOUNT_LOCK_MINUTES || 15);
 const RESET_TOKEN_TTL_MINUTES = Number(process.env.RESET_TOKEN_TTL_MINUTES || 30);
 
 // ── Email transport (configured via env vars) ──────────────
@@ -84,26 +82,16 @@ router.post(
         return sendError(res, 'Employee ID not found.', 401);
       }
 
-      if (user.lockUntil && user.lockUntil > new Date()) {
-        logger.warn('Login attempt on locked account', { empId: user.empId, lockUntil: user.lockUntil });
-        await logAuditEvent({ req, action: 'auth.login.locked', entity: 'user', entityId: user.empId, metadata: { lockUntil: user.lockUntil } });
-        return sendError(res, 'Account is temporarily locked due to failed login attempts.', 423);
-      }
-
       const ok = bcrypt.compareSync(password, user.passwordHash);
       if (!ok) {
         const failedAttempts = Number(user.failedLoginAttempts || 0) + 1;
-        const nextLockUntil = failedAttempts >= MAX_FAILED_LOGIN_ATTEMPTS
-          ? new Date(Date.now() + ACCOUNT_LOCK_MINUTES * 60 * 1000)
-          : null;
         await User.updateOne(
           { _id: user._id },
           {
-            $set: { lockUntil: nextLockUntil },
             $inc: { failedLoginAttempts: 1 },
           }
         );
-        logger.info('Failed login attempt', { empId: user.empId, attempt: failedAttempts, locked: !!nextLockUntil });
+        logger.info('Failed login attempt', { empId: user.empId, attempt: failedAttempts, locked: false });
         await logAuditEvent({
           req,
           action: 'auth.login.failed',
@@ -112,7 +100,6 @@ router.post(
           metadata: {
             reason: 'invalid-password',
             failedAttempts,
-            lockUntil: nextLockUntil,
           },
         });
         return sendError(res, 'Invalid password.', 401);

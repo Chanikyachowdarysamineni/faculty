@@ -277,9 +277,7 @@ function App() {
   }, [handleLogout]);
 
   return (
-    // Router basename is set to /csefaculty for all child routes
-    // All route paths are relative to /csefaculty (e.g., /login becomes /csefaculty/login)
-    <Router basename="/csefaculty">
+    <Router>
       <ErrorBoundary>
         <DataProvider>
           <AuthProvider 
