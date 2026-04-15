@@ -153,6 +153,8 @@ function AppContent({
 }
 
 function App() {
+  const routerBase = process.env.PUBLIC_URL || '';
+
   // Move user state to App level so it persists across routes
   const [currentUser, setCurrentUser] = useState(loadSavedUser);
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
@@ -277,7 +279,7 @@ function App() {
   }, [handleLogout]);
 
   return (
-    <Router>
+    <Router basename={routerBase}>
       <ErrorBoundary>
         <DataProvider>
           <AuthProvider 

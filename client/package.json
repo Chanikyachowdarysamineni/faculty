@@ -2,7 +2,7 @@
   "name": "wlm-login",
   "version": "1.0.0",
   "private": true,
-  "homepage": "/",
+  "homepage": "/csefaculty",
   "dependencies": {
     "clsx": "^2.1.1",
     "compression": "^1.7.4",
